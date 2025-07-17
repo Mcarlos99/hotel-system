@@ -1,5 +1,5 @@
 <?php
-// mikrotik_manager.php - Versão atualizada com credenciais simplificadas
+// mikrotik_manager.php - Versão completa e robusta
 
 // Classe de logging
 class Logger {
@@ -475,7 +475,7 @@ class MikroTikHotspotManager {
     }
 }
 
-// Classe principal do sistema hotel com credenciais simplificadas
+// Classe principal do sistema hotel
 class HotelHotspotSystem {
     protected $mikrotik;
     protected $db;
@@ -520,132 +520,23 @@ class HotelHotspotSystem {
         $this->logger->info("Sistema iniciado");
     }
     
-    /**
-     * Gera usuário simples e memorável
-     * Formato: quarto + 2-3 números aleatórios
-     * Exemplo: 101-45, 205-123
-     */
-    protected function generateSimpleUsername($roomNumber) {
-        // Limpar número do quarto (apenas números e letras)
-        $cleanRoom = preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber);
-        
-        // Garantir que não ultrapasse 6 caracteres para a parte do quarto
-        if (strlen($cleanRoom) > 6) {
-            $cleanRoom = substr($cleanRoom, 0, 6);
-        }
-        
-        // Gerar 2-3 números aleatórios
-        $randomLength = rand(2, 3);
-        $randomNumbers = '';
-        
-        for ($i = 0; $i < $randomLength; $i++) {
-            $randomNumbers .= rand(0, 9);
-        }
-        
-        $baseUsername = $cleanRoom . '-' . $randomNumbers;
-        
-        // Verificar se já existe, se sim, tentar novamente
-        $attempts = 0;
-        while ($this->usernameExists($baseUsername) && $attempts < 15) {
-            $randomNumbers = '';
-            $randomLength = rand(2, 3);
-            for ($i = 0; $i < $randomLength; $i++) {
-                $randomNumbers .= rand(0, 9);
-            }
-            $baseUsername = $cleanRoom . '-' . $randomNumbers;
-            $attempts++;
-        }
-        
-        return $baseUsername;
-    }
-    
-    /**
-     * Gera senha simples e memorável
-     * Formato: 3-4 números simples
-     * Evita sequências obviamente simples como 123, 111, etc.
-     */
-    protected function generateSimplePassword() {
-        $length = rand(3, 4);
-        $password = '';
-        
-        // Gerar senha evitando padrões óbvios
-        $attempts = 0;
-        do {
-            $password = '';
-            for ($i = 0; $i < $length; $i++) {
-                // Para o primeiro dígito, evitar 0
-                if ($i === 0) {
-                    $password .= rand(1, 9);
-                } else {
-                    $password .= rand(0, 9);
-                }
-            }
-            $attempts++;
-        } while ($this->isObviousPassword($password) && $attempts < 30);
-        
-        return $password;
-    }
-    
-    /**
-     * Verifica se a senha é muito óbvia
-     */
-    private function isObviousPassword($password) {
-        // Evitar sequências crescentes
-        if (preg_match('/123|234|345|456|567|678|789/', $password)) {
-            return true;
-        }
-        
-        // Evitar sequências decrescentes
-        if (preg_match('/987|876|765|654|543|432|321/', $password)) {
-            return true;
-        }
-        
-        // Evitar números repetidos (3 ou mais iguais)
-        if (preg_match('/(.)\1\1+/', $password)) {
-            return true;
-        }
-        
-        // Evitar padrões simples
-        $obviousPatterns = [
-            '1234', '4321', '1111', '2222', '3333', '4444', '5555', 
-            '6666', '7777', '8888', '9999', '0000', '1212', '1010',
-            '2020', '1313', '1414', '1515', '1616', '1717', '1818', '1919'
-        ];
-        
-        if (in_array($password, $obviousPatterns)) {
-            return true;
-        }
-        
-        // Evitar datas óbvias
-        $year = date('Y');
-        $shortYear = substr($year, -2);
-        if (strpos($password, $shortYear) !== false) {
-            return true;
-        }
-        
-        return false;
-    }
-    
     public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
-        $this->logger->info("Gerando credenciais simplificadas", [
+        $this->logger->info("Gerando credenciais", [
             'room' => $roomNumber,
             'guest' => $guestName,
             'profile' => $profileType
         ]);
         
         try {
-            // Gerar credenciais simples
-            $username = $this->generateSimpleUsername($roomNumber);
-            $password = $this->generateSimplePassword();
+            $username = $this->generateUniqueUsername($roomNumber);
+            $password = $this->generateSecurePassword();
             $timeLimit = $this->calculateTimeLimit($checkoutDate);
             
-            // Conectar ao MikroTik
+            // Tentar conectar e criar usuário
             $this->mikrotik->connect();
-            
-            // Criar usuário no MikroTik
             $this->mikrotik->createHotspotUser($username, $password, $profileType, $timeLimit);
             
-            // Salvar no banco de dados
+            // Salvar no banco
             $stmt = $this->db->prepare("
                 INSERT INTO hotel_guests (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -662,12 +553,6 @@ class HotelHotspotSystem {
             ]);
             
             $this->mikrotik->disconnect();
-            
-            $this->logger->info("Credenciais geradas com sucesso", [
-                'username' => $username,
-                'password' => $password,
-                'room' => $roomNumber
-            ]);
             
             return [
                 'success' => true,
@@ -686,8 +571,8 @@ class HotelHotspotSystem {
             
             // Em caso de erro, salvar apenas no banco
             try {
-                $username = $this->generateSimpleUsername($roomNumber);
-                $password = $this->generateSimplePassword();
+                $username = $this->generateUniqueUsername($roomNumber);
+                $password = $this->generateSecurePassword();
                 
                 $stmt = $this->db->prepare("
                     INSERT INTO hotel_guests (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date)
@@ -755,7 +640,7 @@ class HotelHotspotSystem {
     
     public function getActiveGuests() {
         $stmt = $this->db->prepare("
-            SELECT room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, created_at
+            SELECT room_number, guest_name, username, profile_type, checkin_date, checkout_date, created_at
             FROM hotel_guests 
             WHERE status = 'active' 
             ORDER BY room_number
@@ -835,10 +720,34 @@ class HotelHotspotSystem {
         }
     }
     
-    protected function usernameExists($username) {
+    private function generateUniqueUsername($roomNumber) {
+        $baseUsername = 'guest_' . $roomNumber;
+        $counter = 1;
+        $username = $baseUsername;
+        
+        while ($this->usernameExists($username)) {
+            $username = $baseUsername . '_' . $counter;
+            $counter++;
+        }
+        
+        return $username;
+    }
+    
+    private function usernameExists($username) {
         $stmt = $this->db->prepare("SELECT id FROM hotel_guests WHERE username = ? AND status = 'active'");
         $stmt->execute([$username]);
         return $stmt->fetchColumn() !== false;
+    }
+    
+    private function generateSecurePassword($length = 8) {
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $password = '';
+        
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        
+        return $password;
     }
     
     private function calculateTimeLimit($checkoutDate) {
@@ -848,12 +757,6 @@ class HotelHotspotSystem {
         $interval = $now->diff($checkout);
         $hours = ($interval->days * 24) + $interval->h;
         $minutes = $interval->i;
-        
-        // Garantir pelo menos 1 hora de limite
-        if ($hours < 1) {
-            $hours = 1;
-            $minutes = 0;
-        }
         
         return sprintf('%02d:%02d:00', $hours, $minutes);
     }
@@ -873,9 +776,8 @@ class HotelHotspotSystem {
             status ENUM('active', 'expired', 'disabled') DEFAULT 'active',
             INDEX idx_room (room_number),
             INDEX idx_status (status),
-            INDEX idx_dates (checkin_date, checkout_date),
-            INDEX idx_username (username)
-        ) ENGINE=InnoDB";
+            INDEX idx_dates (checkin_date, checkout_date)
+        )";
         
         $this->db->exec($sql);
         
@@ -891,106 +793,9 @@ class HotelHotspotSystem {
             INDEX idx_room (room_number),
             INDEX idx_action (action),
             INDEX idx_date (created_at)
-        ) ENGINE=InnoDB";
+        )";
         
         $this->db->exec($sql);
-        
-        // Tabela de configurações do sistema
-        $sql = "CREATE TABLE IF NOT EXISTS system_settings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            setting_key VARCHAR(100) UNIQUE NOT NULL,
-            setting_value TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB";
-        
-        $this->db->exec($sql);
-        
-        $this->logger->info("Tabelas do banco de dados verificadas/criadas");
-    }
-    
-    /**
-     * Método para gerar relatório de credenciais geradas
-     */
-    public function getCredentialsReport($startDate = null, $endDate = null) {
-        if (!$startDate) {
-            $startDate = date('Y-m-d', strtotime('-30 days'));
-        }
-        if (!$endDate) {
-            $endDate = date('Y-m-d');
-        }
-        
-        $stmt = $this->db->prepare("
-            SELECT 
-                room_number,
-                guest_name,
-                username,
-                password,
-                profile_type,
-                checkin_date,
-                checkout_date,
-                created_at,
-                status,
-                CASE 
-                    WHEN status = 'active' AND checkout_date >= CURDATE() THEN 'Ativo'
-                    WHEN status = 'active' AND checkout_date < CURDATE() THEN 'Expirado'
-                    WHEN status = 'disabled' THEN 'Desabilitado'
-                    ELSE 'Expirado'
-                END as status_display
-            FROM hotel_guests 
-            WHERE DATE(created_at) BETWEEN ? AND ?
-            ORDER BY created_at DESC
-        ");
-        
-        $stmt->execute([$startDate, $endDate]);
-        return $stmt->fetchAll();
-    }
-    
-    /**
-     * Método para validar credenciais antes de gerar
-     */
-    public function validateCredentialGeneration($roomNumber, $guestName, $checkinDate, $checkoutDate) {
-        $errors = [];
-        
-        // Validar número do quarto
-        if (empty(trim($roomNumber))) {
-            $errors[] = "Número do quarto é obrigatório";
-        } elseif (strlen(trim($roomNumber)) > 10) {
-            $errors[] = "Número do quarto deve ter no máximo 10 caracteres";
-        }
-        
-        // Validar nome do hóspede
-        if (empty(trim($guestName))) {
-            $errors[] = "Nome do hóspede é obrigatório";
-        } elseif (strlen(trim($guestName)) > 100) {
-            $errors[] = "Nome do hóspede deve ter no máximo 100 caracteres";
-        }
-        
-        // Validar datas
-        $checkin = new DateTime($checkinDate);
-        $checkout = new DateTime($checkoutDate);
-        $today = new DateTime();
-        
-        if ($checkin > $checkout) {
-            $errors[] = "Data de check-in deve ser anterior ao check-out";
-        }
-        
-        if ($checkout < $today) {
-            $errors[] = "Data de check-out não pode ser no passado";
-        }
-        
-        // Verificar se já existe usuário ativo para o quarto
-        $stmt = $this->db->prepare("
-            SELECT username FROM hotel_guests 
-            WHERE room_number = ? AND status = 'active'
-        ");
-        $stmt->execute([trim($roomNumber)]);
-        
-        if ($stmt->fetch()) {
-            $errors[] = "Já existe um usuário ativo para o quarto {$roomNumber}";
-        }
-        
-        return $errors;
     }
 }
 ?>
