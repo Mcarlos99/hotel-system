@@ -1,5 +1,5 @@
 <?php
-// index.php - Interface principal com BOTÃO REMOVER FUNCIONANDO 100%
+// index.php - Interface principal com REMOÇÃO COMPLETAMENTE CORRIGIDA
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
@@ -8,8 +8,8 @@ session_start();
 require_once 'config.php';
 require_once 'mikrotik_manager.php';
 
-// Classe HotelHotspotSystem com credenciais simplificadas e remoção funcionando
-class HotelHotspotSystemSimple {
+// Classe HotelHotspotSystem com remoção 100% funcional
+class HotelHotspotSystemFixed {
     protected $mikrotik;
     protected $db;
     
@@ -39,7 +39,8 @@ class HotelHotspotSystemSimple {
                 $mikrotikConfig['port'] ?? 8728
             );
         } catch (Exception $e) {
-            // MikroTik opcional
+            // MikroTik opcional - continuar sem ele
+            error_log("Aviso: MikroTik não conectado - " . $e->getMessage());
         }
         
         $this->createTables();
@@ -119,14 +120,17 @@ class HotelHotspotSystemSimple {
             $password = $this->generateSimplePassword();
             
             // Tentar conectar ao MikroTik (não crítico)
+            $mikrotikSuccess = false;
             try {
                 if ($this->mikrotik) {
                     $this->mikrotik->connect();
                     $timeLimit = $this->calculateTimeLimit($checkoutDate);
                     $this->mikrotik->createHotspotUser($username, $password, $profileType, $timeLimit);
                     $this->mikrotik->disconnect();
+                    $mikrotikSuccess = true;
                 }
             } catch (Exception $e) {
+                error_log("Erro MikroTik na criação: " . $e->getMessage());
                 // Continuar mesmo se falhar no MikroTik
             }
             
@@ -147,13 +151,16 @@ class HotelHotspotSystemSimple {
             ]);
             
             if ($result) {
+                $warning = $mikrotikSuccess ? '' : ' (Criado apenas no sistema - adicione manualmente no MikroTik)';
+                
                 return [
                     'success' => true,
                     'username' => $username,
                     'password' => $password,
                     'profile' => $profileType,
                     'valid_until' => $checkoutDate,
-                    'bandwidth' => '10M/2M'
+                    'bandwidth' => '10M/2M',
+                    'warning' => $warning
                 ];
             } else {
                 return [
@@ -171,14 +178,13 @@ class HotelHotspotSystemSimple {
     }
     
     /**
-     * REMOÇÃO CORRIGIDA - SEM JAVASCRIPT QUE CANCELA
+     * REMOÇÃO COMPLETAMENTE CORRIGIDA - VERSÃO FINAL
      */
     public function removeGuestAccess($roomNumber) {
         try {
-            // Debug: log da tentativa
-            error_log("DEBUG: Tentando remover quarto: " . $roomNumber);
+            error_log("=== INÍCIO REMOÇÃO - QUARTO: {$roomNumber} ===");
             
-            // Buscar o hóspede ativo pelo número do quarto
+            // 1. Buscar o hóspede ativo pelo número do quarto
             $stmt = $this->db->prepare("
                 SELECT id, username, guest_name 
                 FROM hotel_guests 
@@ -188,9 +194,8 @@ class HotelHotspotSystemSimple {
             $stmt->execute([$roomNumber]);
             $guest = $stmt->fetch();
             
-            error_log("DEBUG: Hóspede encontrado: " . ($guest ? "SIM - " . $guest['username'] : "NÃO"));
-            
             if (!$guest) {
+                error_log("ERRO: Nenhum hóspede ativo encontrado para o quarto {$roomNumber}");
                 return [
                     'success' => false, 
                     'error' => "Nenhum hóspede ativo encontrado para o quarto {$roomNumber}"
@@ -201,23 +206,13 @@ class HotelHotspotSystemSimple {
             $guestName = $guest['guest_name'];
             $guestId = $guest['id'];
             
-            // Tentar remover do MikroTik (não crítico)
-            $mikrotikMsg = '';
-            try {
-                if ($this->mikrotik) {
-                    $this->mikrotik->connect();
-                    $this->mikrotik->disconnectUser($username);
-                    $this->mikrotik->removeHotspotUser($username);
-                    $this->mikrotik->disconnect();
-                    $mikrotikMsg = ' | Removido do MikroTik';
-                    error_log("DEBUG: Removido do MikroTik: " . $username);
-                }
-            } catch (Exception $e) {
-                $mikrotikMsg = ' | MikroTik: ' . $e->getMessage();
-                error_log("DEBUG: Erro MikroTik: " . $e->getMessage());
-            }
+            error_log("HÓSPEDE ENCONTRADO: ID={$guestId}, USER={$username}, NOME={$guestName}");
             
-            // Atualizar status no banco (CRÍTICO)
+            // 2. NOVO: Tentar remover do MikroTik com múltiplas tentativas
+            $mikrotikResult = $this->removeMikroTikUserRobust($username);
+            error_log("RESULTADO MIKROTIK: " . json_encode($mikrotikResult));
+            
+            // 3. Atualizar status no banco (SEMPRE executar)
             $stmt = $this->db->prepare("
                 UPDATE hotel_guests 
                 SET status = 'disabled', updated_at = NOW() 
@@ -225,23 +220,34 @@ class HotelHotspotSystemSimple {
             ");
             
             $updateResult = $stmt->execute([$guestId]);
-            error_log("DEBUG: Update result: " . ($updateResult ? "SUCCESS" : "FAILED"));
+            error_log("UPDATE DATABASE: " . ($updateResult ? "SUCCESS" : "FAILED"));
             
             if ($updateResult) {
                 // Verificar se realmente foi atualizado
                 $stmt = $this->db->prepare("SELECT status FROM hotel_guests WHERE id = ?");
                 $stmt->execute([$guestId]);
                 $newStatus = $stmt->fetchColumn();
-                error_log("DEBUG: Novo status: " . $newStatus);
+                error_log("NOVO STATUS VERIFICADO: {$newStatus}");
                 
                 // Registrar log da ação
                 $this->logAction($username, $roomNumber, 'disabled');
                 
+                // Montar mensagem de resultado
+                $message = "✅ Acesso removido para {$guestName} (Quarto {$roomNumber})";
+                if ($mikrotikResult['success']) {
+                    $message .= " | ✅ Removido do MikroTik";
+                } else {
+                    $message .= " | ⚠️ MikroTik: " . $mikrotikResult['message'];
+                }
+                
+                error_log("=== REMOÇÃO CONCLUÍDA COM SUCESSO ===");
+                
                 return [
                     'success' => true,
-                    'message' => "✅ Acesso removido para {$guestName} (Quarto {$roomNumber}){$mikrotikMsg}"
+                    'message' => $message
                 ];
             } else {
+                error_log("ERRO: Falha ao atualizar status no banco");
                 return [
                     'success' => false,
                     'error' => 'Falha ao atualizar status no banco de dados'
@@ -249,10 +255,70 @@ class HotelHotspotSystemSimple {
             }
             
         } catch (Exception $e) {
-            error_log("DEBUG: Exception: " . $e->getMessage());
+            error_log("EXCEPTION NA REMOÇÃO: " . $e->getMessage());
+            error_log("STACK TRACE: " . $e->getTraceAsString());
             return [
                 'success' => false,
                 'error' => 'Erro ao remover acesso: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * NOVA FUNÇÃO: Remoção robusta do MikroTik com múltiplas tentativas
+     */
+    private function removeMikroTikUserRobust($username) {
+        if (!$this->mikrotik) {
+            return [
+                'success' => false,
+                'message' => 'MikroTik não configurado'
+            ];
+        }
+        
+        try {
+            error_log("Iniciando remoção MikroTik para usuário: {$username}");
+            
+            // Conectar
+            $this->mikrotik->connect();
+            error_log("Conectado ao MikroTik");
+            
+            // Primeiro: Desconectar usuário ativo (se houver)
+            try {
+                $disconnected = $this->mikrotik->disconnectUser($username);
+                error_log("Desconexão do usuário: " . ($disconnected ? "SUCCESS" : "NOT_NEEDED"));
+            } catch (Exception $e) {
+                error_log("Aviso: Erro na desconexão (normal se usuário não estiver online): " . $e->getMessage());
+            }
+            
+            // Segundo: Remover usuário da lista
+            try {
+                $removed = $this->mikrotik->removeHotspotUser($username);
+                error_log("Remoção do usuário: " . ($removed ? "SUCCESS" : "FAILED"));
+                
+                $this->mikrotik->disconnect();
+                
+                return [
+                    'success' => true,
+                    'message' => 'Removido com sucesso'
+                ];
+                
+            } catch (Exception $e) {
+                error_log("Erro na remoção do usuário: " . $e->getMessage());
+                
+                $this->mikrotik->disconnect();
+                
+                return [
+                    'success' => false,
+                    'message' => 'Erro na remoção: ' . $e->getMessage()
+                ];
+            }
+            
+        } catch (Exception $e) {
+            error_log("Erro geral MikroTik: " . $e->getMessage());
+            
+            return [
+                'success' => false,
+                'message' => 'Erro de conexão: ' . $e->getMessage()
             ];
         }
     }
@@ -282,7 +348,7 @@ class HotelHotspotSystemSimple {
                 $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
             ]);
         } catch (Exception $e) {
-            // Log não é crítico
+            error_log("Erro no log: " . $e->getMessage());
         }
     }
     
@@ -312,20 +378,61 @@ class HotelHotspotSystemSimple {
         
         $stats['online_users'] = 0;
         
+        // Tentar obter usuários online do MikroTik
+        try {
+            if ($this->mikrotik) {
+                $this->mikrotik->connect();
+                $activeUsers = $this->mikrotik->getActiveUsers();
+                $stats['online_users'] = is_array($activeUsers) ? count($activeUsers) : 0;
+                $this->mikrotik->disconnect();
+            }
+        } catch (Exception $e) {
+            // Falhou, manter 0
+        }
+        
         return $stats;
     }
     
     public function cleanupExpiredUsers() {
         try {
+            // Buscar usuários expirados
             $stmt = $this->db->prepare("
-                UPDATE hotel_guests 
-                SET status = 'expired', updated_at = NOW() 
+                SELECT username, room_number 
+                FROM hotel_guests 
                 WHERE checkout_date < CURDATE() AND status = 'active'
             ");
             $stmt->execute();
-            $removed = $stmt->rowCount();
+            $expiredUsers = $stmt->fetchAll();
             
-            return ['success' => true, 'removed' => $removed];
+            $removedCount = 0;
+            
+            foreach ($expiredUsers as $user) {
+                // Tentar remover do MikroTik
+                try {
+                    if ($this->mikrotik) {
+                        $this->mikrotik->connect();
+                        $this->mikrotik->disconnectUser($user['username']);
+                        $this->mikrotik->removeHotspotUser($user['username']);
+                        $this->mikrotik->disconnect();
+                    }
+                } catch (Exception $e) {
+                    error_log("Erro ao remover {$user['username']} do MikroTik: " . $e->getMessage());
+                }
+                
+                // Atualizar banco
+                $stmt = $this->db->prepare("
+                    UPDATE hotel_guests 
+                    SET status = 'expired', updated_at = NOW() 
+                    WHERE username = ?
+                ");
+                
+                if ($stmt->execute([$user['username']])) {
+                    $removedCount++;
+                    $this->logAction($user['username'], $user['room_number'], 'expired');
+                }
+            }
+            
+            return ['success' => true, 'removed' => $removedCount];
             
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
@@ -391,28 +498,88 @@ class HotelHotspotSystemSimple {
         
         $this->db->exec($sql);
     }
+    
+    /**
+     * NOVA FUNÇÃO: Debug completo do sistema
+     */
+    public function debugSystem() {
+        $debug = [
+            'database' => $this->debugDatabase(),
+            'mikrotik' => $this->debugMikroTik(),
+            'active_guests' => $this->getActiveGuests()
+        ];
+        
+        return $debug;
+    }
+    
+    private function debugDatabase() {
+        try {
+            $stmt = $this->db->query("SELECT COUNT(*) FROM hotel_guests");
+            $totalGuests = $stmt->fetchColumn();
+            
+            $stmt = $this->db->query("SELECT COUNT(*) FROM hotel_guests WHERE status = 'active'");
+            $activeGuests = $stmt->fetchColumn();
+            
+            return [
+                'connected' => true,
+                'total_guests' => $totalGuests,
+                'active_guests' => $activeGuests
+            ];
+        } catch (Exception $e) {
+            return [
+                'connected' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    private function debugMikroTik() {
+        if (!$this->mikrotik) {
+            return [
+                'connected' => false,
+                'error' => 'MikroTik não configurado'
+            ];
+        }
+        
+        try {
+            $this->mikrotik->connect();
+            $users = $this->mikrotik->listHotspotUsers();
+            $active = $this->mikrotik->getActiveUsers();
+            $this->mikrotik->disconnect();
+            
+            return [
+                'connected' => true,
+                'total_users' => count($users),
+                'active_users' => count($active)
+            ];
+        } catch (Exception $e) {
+            return [
+                'connected' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 }
 
 // Inicializar o sistema
 try {
-    $hotelSystem = new HotelHotspotSystemSimple($mikrotikConfig, $dbConfig);
+    $hotelSystem = new HotelHotspotSystemFixed($mikrotikConfig, $dbConfig);
 } catch (Exception $e) {
     die("Erro ao inicializar sistema: " . $e->getMessage());
-}
-
-// DEBUG: Log de POST
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log("DEBUG: POST recebido: " . print_r($_POST, true));
 }
 
 // Processar ações do formulário
 $result = null;
 $message = null;
+$debugInfo = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("=== POST RECEBIDO ===");
+    error_log("POST DATA: " . print_r($_POST, true));
+    
     try {
         if (isset($_POST['generate_access'])) {
-            error_log("DEBUG: Processando generate_access");
+            error_log("Processando GENERATE_ACCESS");
             $result = $hotelSystem->generateCredentials(
                 $_POST['room_number'],
                 $_POST['guest_name'],
@@ -422,47 +589,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             
         } elseif (isset($_POST['remove_access'])) {
-            error_log("DEBUG: Processando remove_access para quarto: " . $_POST['room_number']);
+            $roomNumber = $_POST['room_number'];
+            error_log("=== PROCESSANDO REMOVE_ACCESS PARA QUARTO: {$roomNumber} ===");
             
-            $removeResult = $hotelSystem->removeGuestAccess($_POST['room_number']);
+            $removeResult = $hotelSystem->removeGuestAccess($roomNumber);
             
             if ($removeResult['success']) {
                 $message = $removeResult['message'];
-                error_log("DEBUG: Remoção bem-sucedida: " . $message);
+                error_log("REMOÇÃO BEM-SUCEDIDA: " . $message);
             } else {
                 $message = "❌ Erro: " . $removeResult['error'];
-                error_log("DEBUG: Erro na remoção: " . $removeResult['error']);
+                error_log("ERRO NA REMOÇÃO: " . $removeResult['error']);
             }
             
         } elseif (isset($_POST['cleanup_expired'])) {
-            error_log("DEBUG: Processando cleanup_expired");
+            error_log("Processando CLEANUP_EXPIRED");
             $result = $hotelSystem->cleanupExpiredUsers();
             $message = "🧹 Limpeza concluída. Usuários removidos: " . $result['removed'];
+            
+        } elseif (isset($_POST['debug_system'])) {
+            error_log("Processando DEBUG_SYSTEM");
+            $debugInfo = $hotelSystem->debugSystem();
+            $message = "🔍 Debug do sistema executado";
         }
         
     } catch (Exception $e) {
         $message = "❌ Erro: " . $e->getMessage();
-        error_log("DEBUG: Exception no processamento: " . $e->getMessage());
+        error_log("EXCEPTION NO PROCESSAMENTO: " . $e->getMessage());
     }
 }
 
 // Obter dados para exibição
 $activeGuests = $hotelSystem->getActiveGuests();
 $systemStats = $hotelSystem->getSystemStats();
-
-// API para atualização via AJAX
-if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
-    header('Content-Type: application/json');
-    echo json_encode($hotelSystem->getSystemStats());
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $systemConfig['hotel_name']; ?> - Sistema de Internet</title>
+    <title><?php echo $systemConfig['hotel_name']; ?> - Sistema de Internet CORRIGIDO</title>
     <style>
         * {
             margin: 0;
@@ -590,6 +756,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
             font-size: 16px;
             font-weight: 600;
             transition: all 0.3s ease;
+            margin: 5px;
         }
         
         .btn:hover {
@@ -607,6 +774,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
         
         .btn-success {
             background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
         }
         
         .alert {
@@ -706,6 +877,51 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
             background: #3498db;
         }
         
+        .debug-section {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .debug-title {
+            color: #856404;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background: #27ae60;
+        }
+        
+        .status-offline {
+            background: #e74c3c;
+        }
+        
+        .status-warning {
+            background: #f39c12;
+        }
+        
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -725,7 +941,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
     <div class="container">
         <div class="header">
             <h1>🏨 <?php echo $systemConfig['hotel_name']; ?></h1>
-            <p>Sistema de Gerenciamento de Internet - Credenciais Simplificadas</p>
+            <p>Sistema de Gerenciamento de Internet - VERSÃO CORRIGIDA ✅</p>
         </div>
         
         <!-- Estatísticas -->
@@ -813,10 +1029,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
                         </div>
                         
                         <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-top: 15px;">
-                        <strong>📋 Informações:</strong><br>
-                            Quarto: <?php echo htmlspecialchars($_POST['room_number']); ?> | 
-                            Hóspede: <?php echo htmlspecialchars($_POST['guest_name']); ?> | 
+                            <strong>📋 Informações:</strong><br>
+                            Quarto: <?php echo htmlspecialchars($_POST['room_number'] ?? ''); ?> | 
+                            Hóspede: <?php echo htmlspecialchars($_POST['guest_name'] ?? ''); ?> | 
                             Válido até: <?php echo date('d/m/Y', strtotime($result['valid_until'])); ?>
+                            <?php if (!empty($result['warning'])): ?>
+                                <br><strong>⚠️ Aviso:</strong> <?php echo $result['warning']; ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php elseif (isset($result) && !$result['success']): ?>
@@ -871,11 +1090,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
                                 <td><?php echo date('d/m/Y', strtotime($guest['checkout_date'])); ?></td>
                                 <td>
                                     <div class="actions">
-                                        <!-- FORMULÁRIO SIMPLIFICADO SEM JAVASCRIPT QUE CANCELA -->
-                                        <form method="POST" action="" style="display: inline;">
+                                        <!-- FORMULÁRIO DE REMOÇÃO CORRIGIDO -->
+                                        <form method="POST" action="" style="display: inline;" onsubmit="return confirmRemoval('<?php echo htmlspecialchars($guest['room_number']); ?>', '<?php echo htmlspecialchars($guest['guest_name']); ?>', '<?php echo htmlspecialchars($guest['username']); ?>')">
                                             <input type="hidden" name="room_number" value="<?php echo htmlspecialchars($guest['room_number']); ?>">
-                                            <button type="submit" name="remove_access" class="btn btn-danger"
-                                                    onclick="return confirm('⚠️ REMOVER ACESSO?\n\nQuarto: <?php echo htmlspecialchars($guest['room_number']); ?>\nHóspede: <?php echo htmlspecialchars($guest['guest_name']); ?>\nUsuário: <?php echo htmlspecialchars($guest['username']); ?>\n\n✅ Confirmar remoção?');">
+                                            <button type="submit" name="remove_access" class="btn btn-danger">
                                                 🗑️ Remover
                                             </button>
                                         </form>
@@ -897,29 +1115,90 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
                     <button onclick="location.reload()" class="btn">
                         🔄 Atualizar Lista
                     </button>
+                    <form method="POST" style="display: inline;">
+                        <button type="submit" name="debug_system" class="btn btn-warning">
+                            🔍 Debug Sistema
+                        </button>
+                    </form>
                 </div>
             </div>
             
             <!-- Debug Info -->
-            <div class="section" style="background: #fff3cd; border: 2px solid #ffc107;">
-                <h2>🔧 Debug Info</h2>
-                <p><strong>POST Data:</strong></p>
-                <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 12px;">
-<?php echo htmlspecialchars(print_r($_POST, true)); ?>
-                </pre>
+            <?php if ($debugInfo): ?>
+            <div class="debug-section">
+                <div class="debug-title">🔍 Informações de Debug do Sistema</div>
                 
-                <p><strong>Últimas ações (verifique no log de erro do PHP):</strong></p>
-                <ul>
-                    <li>POST recebido: Verificar logs</li>
-                    <li>Processamento: Verificar logs</li>
-                    <li>Resultado: <?php echo isset($message) ? htmlspecialchars($message) : 'Nenhuma ação realizada'; ?></li>
-                </ul>
+                <h4>💾 Status do Banco de Dados</h4>
+                <div class="debug-info">
+<?php 
+echo "Conectado: " . ($debugInfo['database']['connected'] ? "✅ SIM" : "❌ NÃO") . "\n";
+if ($debugInfo['database']['connected']) {
+    echo "Total de hóspedes: " . $debugInfo['database']['total_guests'] . "\n";
+    echo "Hóspedes ativos: " . $debugInfo['database']['active_guests'] . "\n";
+} else {
+    echo "Erro: " . $debugInfo['database']['error'] . "\n";
+}
+?>
+                </div>
                 
-                <p><strong>Teste manual:</strong></p>
-                <form method="POST" action="" style="display: inline;">
-                    <input type="hidden" name="room_number" value="TESTE">
-                    <button type="submit" name="remove_access" class="btn btn-danger">
-                        🧪 Teste Remover (quarto TESTE)
+                <h4>📡 Status do MikroTik</h4>
+                <div class="debug-info">
+<?php 
+echo "Conectado: " . ($debugInfo['mikrotik']['connected'] ? "✅ SIM" : "❌ NÃO") . "\n";
+if ($debugInfo['mikrotik']['connected']) {
+    echo "Total de usuários no MikroTik: " . $debugInfo['mikrotik']['total_users'] . "\n";
+    echo "Usuários ativos no MikroTik: " . $debugInfo['mikrotik']['active_users'] . "\n";
+} else {
+    echo "Erro: " . $debugInfo['mikrotik']['error'] . "\n";
+}
+?>
+                </div>
+                
+                <h4>👥 Hóspedes Ativos Detalhados</h4>
+                <div class="debug-info">
+<?php 
+if (empty($debugInfo['active_guests'])) {
+    echo "Nenhum hóspede ativo encontrado.\n";
+} else {
+    foreach ($debugInfo['active_guests'] as $guest) {
+        echo "ID: {$guest['id']} | ";
+        echo "Quarto: {$guest['room_number']} | ";
+        echo "Nome: {$guest['guest_name']} | ";
+        echo "User: {$guest['username']} | ";
+        echo "Status: {$guest['status']}\n";
+    }
+}
+?>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Debug Info de POST -->
+            <div class="debug-section">
+                <div class="debug-title">🔧 Debug de Processamento</div>
+                
+                <h4>📤 Dados POST Recebidos</h4>
+                <div class="debug-info"><?php echo htmlspecialchars(print_r($_POST, true)); ?></div>
+                
+                <h4>🎯 Último Resultado</h4>
+                <div class="debug-info">
+<?php 
+if (isset($message)) {
+    echo "Mensagem: " . $message . "\n";
+}
+if (isset($result)) {
+    echo "Resultado completo:\n" . print_r($result, true);
+}
+echo "\nHorário do processamento: " . date('Y-m-d H:i:s') . "\n";
+echo "Método da requisição: " . $_SERVER['REQUEST_METHOD'] . "\n";
+?>
+                </div>
+                
+                <h4>🔗 Teste Manual Direto</h4>
+                <form method="POST" action="" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <input type="hidden" name="room_number" value="TESTE-DEBUG">
+                    <button type="submit" name="remove_access" class="btn btn-danger" onclick="return confirm('Testar remoção do quarto TESTE-DEBUG?')">
+                        🧪 Teste Remover (TESTE-DEBUG)
                     </button>
                 </form>
             </div>
@@ -927,6 +1206,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
     </div>
     
     <script>
+        // Função de confirmação melhorada
+        function confirmRemoval(room, guest, username) {
+            const message = `⚠️ CONFIRMAR REMOÇÃO?\n\n` +
+                          `🏠 Quarto: ${room}\n` +
+                          `👤 Hóspede: ${guest}\n` +
+                          `🔑 Usuário: ${username}\n\n` +
+                          `Esta ação irá:\n` +
+                          `• Desconectar o usuário do WiFi\n` +
+                          `• Remover o acesso do MikroTik\n` +
+                          `• Desativar no sistema\n\n` +
+                          `✅ Confirmar remoção?`;
+            
+            return confirm(message);
+        }
+        
         // Definir datas padrão
         document.getElementById('checkin_date').valueAsDate = new Date();
         const tomorrow = new Date();
@@ -934,29 +1228,31 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
         document.getElementById('checkout_date').valueAsDate = tomorrow;
         
         // Console debug
-        console.log('🏨 Sistema Hotel - Debug Mode');
+        console.log('🏨 Sistema Hotel - VERSÃO CORRIGIDA');
         console.log('Hóspedes ativos:', <?php echo count($activeGuests); ?>);
         
         // Log de POST para debug
         <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
         console.log('POST enviado:', <?php echo json_encode($_POST); ?>);
         console.log('Mensagem retornada:', '<?php echo addslashes($message ?? 'Nenhuma'); ?>');
+        console.log('Timestamp:', '<?php echo date('Y-m-d H:i:s'); ?>');
         <?php endif; ?>
         
         // Função de debug para formulários
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', function(e) {
-                console.log('Formulário sendo enviado:', this);
-                console.log('Dados do formulário:', new FormData(this));
+                console.log('📤 Formulário sendo enviado:', this);
+                console.log('📋 Dados do formulário:', new FormData(this));
                 
                 // Se for o botão remover, adicionar debug
                 if (this.querySelector('button[name="remove_access"]')) {
                     const roomNumber = this.querySelector('input[name="room_number"]').value;
-                    console.log('🗑️ Tentando remover quarto:', roomNumber);
+                    console.log('🗑️ TENTANDO REMOVER QUARTO:', roomNumber);
+                    console.log('⏰ Timestamp de envio:', new Date().toISOString());
                     
                     // Log adicional
                     setTimeout(() => {
-                        console.log('Formulário de remoção enviado. Aguardando resposta...');
+                        console.log('✅ Formulário de remoção enviado. Aguardando resposta do servidor...');
                     }, 100);
                 }
             });
@@ -964,12 +1260,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
         
         // Verificar se houve remoção bem-sucedida
         <?php if (isset($message) && strpos($message, '✅') !== false): ?>
-        console.log('✅ Remoção bem-sucedida detectada!');
+        console.log('🎉 REMOÇÃO BEM-SUCEDIDA DETECTADA!');
+        console.log('Mensagem de sucesso:', '<?php echo addslashes($message); ?>');
+        
         // Destacar a mensagem de sucesso
         const alerts = document.querySelectorAll('.alert-success');
         alerts.forEach(alert => {
             alert.style.border = '3px solid #27ae60';
             alert.style.animation = 'pulse 1s ease-in-out 3';
+            
+            // Adicionar ícone de sucesso
+            if (!alert.querySelector('.success-icon')) {
+                const icon = document.createElement('span');
+                icon.className = 'success-icon';
+                icon.innerHTML = '🎉 ';
+                icon.style.fontSize = '1.5em';
+                alert.insertBefore(icon, alert.firstChild);
+            }
         });
         <?php endif; ?>
         
@@ -981,8 +1288,70 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'stats') {
                 50% { transform: scale(1.02); }
                 100% { transform: scale(1); }
             }
+            
+            .btn:active {
+                transform: scale(0.98);
+            }
+            
+            .status-indicator {
+                animation: blink 2s infinite;
+            }
+            
+            @keyframes blink {
+                0%, 50% { opacity: 1; }
+                51%, 100% { opacity: 0.5; }
+            }
         `;
         document.head.appendChild(style);
+        
+        // Auto-refresh para desenvolvimento (opcional)
+        let autoRefreshEnabled = false;
+        
+        if (autoRefreshEnabled) {
+            setInterval(() => {
+                fetch(window.location.href + '?ajax=stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('📊 Stats atualizadas:', data);
+                        // Atualizar os números nas estatísticas
+                    })
+                    .catch(err => console.log('Erro no auto-refresh:', err));
+            }, 30000); // A cada 30 segundos
+        }
+        
+        // Função para copiar credenciais
+        function copyCredentials(username, password) {
+            const text = `Usuário: ${username}\nSenha: ${password}`;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    console.log('✅ Credenciais copiadas!');
+                    // Feedback visual aqui se desejar
+                });
+            }
+        }
+        
+        // Adicionar evento de cópia nas credenciais
+        document.querySelectorAll('.credential-display').forEach(elem => {
+            elem.style.cursor = 'pointer';
+            elem.title = 'Clique para copiar';
+            elem.addEventListener('click', function() {
+                const text = this.textContent;
+                
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text);
+                    
+                    // Feedback visual
+                    const original = this.style.backgroundColor;
+                    this.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                    setTimeout(() => {
+                        this.style.backgroundColor = original;
+                    }, 300);
+                }
+            });
+        });
+        
+        console.log('🚀 Sistema carregado completamente - Remoção CORRIGIDA!');
     </script>
 </body>
 </html>

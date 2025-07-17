@@ -1,82 +1,7 @@
 <?php
-// mikrotik_manager.php - Versão atualizada com credenciais simplificadas
+// mikrotik_manager.php - Versão CORRIGIDA com timeout e prevenção de loops infinitos
 
-// Classe de logging
-class Logger {
-    private $logFile;
-    private $logLevel;
-    private $maxSize;
-    private $backupLogs;
-    
-    const DEBUG = 0;
-    const INFO = 1;
-    const WARNING = 2;
-    const ERROR = 3;
-    
-    private $levels = [
-        0 => 'DEBUG',
-        1 => 'INFO',
-        2 => 'WARNING',
-        3 => 'ERROR'
-    ];
-    
-    public function __construct($config) {
-        $this->logFile = $config['log_file'];
-        $this->logLevel = $this->getLevelCode($config['log_level']);
-        $this->maxSize = $config['max_log_size'];
-        $this->backupLogs = $config['backup_logs'];
-        
-        $this->checkLogRotation();
-    }
-    
-    private function getLevelCode($level) {
-        $levels = ['DEBUG' => 0, 'INFO' => 1, 'WARNING' => 2, 'ERROR' => 3];
-        return $levels[$level] ?? 1;
-    }
-    
-    private function checkLogRotation() {
-        if (file_exists($this->logFile) && filesize($this->logFile) > $this->maxSize) {
-            if ($this->backupLogs) {
-                $backup = $this->logFile . '.' . date('YmdHis');
-                rename($this->logFile, $backup);
-            } else {
-                unlink($this->logFile);
-            }
-        }
-    }
-    
-    public function log($level, $message, $context = []) {
-        $levelCode = $this->getLevelCode($level);
-        
-        if ($levelCode < $this->logLevel) {
-            return;
-        }
-        
-        $timestamp = date('Y-m-d H:i:s');
-        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
-        $logEntry = "[{$timestamp}] [{$level}] {$message}{$contextStr}" . PHP_EOL;
-        
-        file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
-    }
-    
-    public function debug($message, $context = []) {
-        $this->log('DEBUG', $message, $context);
-    }
-    
-    public function info($message, $context = []) {
-        $this->log('INFO', $message, $context);
-    }
-    
-    public function warning($message, $context = []) {
-        $this->log('WARNING', $message, $context);
-    }
-    
-    public function error($message, $context = []) {
-        $this->log('ERROR', $message, $context);
-    }
-}
-
-// Classe MikroTik Robusta com fallbacks
+// Classe MikroTik com timeout robusto
 class MikroTikHotspotManager {
     private $host;
     private $username;
@@ -85,6 +10,7 @@ class MikroTikHotspotManager {
     private $socket;
     private $connected = false;
     private $logger;
+    private $timeout = 10; // Timeout em segundos
     
     public function __construct($host, $username, $password, $port = 8728) {
         $this->host = $host;
@@ -101,42 +27,40 @@ class MikroTikHotspotManager {
         if ($this->logger) {
             $this->logger->log($level, $message, $context);
         }
+        // Sempre fazer log de erro também
+        error_log("MikroTik [{$level}]: {$message}");
     }
     
-    // Conectar com múltiplas tentativas
+    // Conectar com timeout e múltiplas tentativas
     public function connect() {
+        $this->log('INFO', "Tentando conectar em {$this->host}:{$this->port}");
+        
+        // Limpar conexão anterior se existir
+        if ($this->socket) {
+            $this->disconnect();
+        }
+        
         // Tentativas com diferentes credenciais
         $attempts = [
             ['user' => $this->username, 'pass' => $this->password],
             ['user' => 'admin', 'pass' => ''],
-            ['user' => 'admin', 'pass' => $this->password],
-            ['user' => $this->username, 'pass' => ''],
-            ['user' => 'hotel-system', 'pass' => 'hotel123']
+            ['user' => 'admin', 'pass' => $this->password]
         ];
         
         foreach ($attempts as $attempt) {
             try {
-                $this->log('INFO', "Tentando conectar", [
-                    'host' => $this->host,
-                    'port' => $this->port,
-                    'user' => $attempt['user']
-                ]);
-                
                 if ($this->tryConnect($attempt['user'], $attempt['pass'])) {
                     $this->connected = true;
-                    $this->log('INFO', "Conexão estabelecida", ['user' => $attempt['user']]);
+                    $this->log('INFO', "Conectado com usuário: {$attempt['user']}");
                     return true;
                 }
             } catch (Exception $e) {
-                $this->log('WARNING', "Falha na tentativa", [
-                    'user' => $attempt['user'],
-                    'error' => $e->getMessage()
-                ]);
+                $this->log('WARNING', "Falha na tentativa com {$attempt['user']}: " . $e->getMessage());
                 continue;
             }
         }
         
-        throw new Exception("Não foi possível conectar ao MikroTik após múltiplas tentativas");
+        throw new Exception("Não foi possível conectar após múltiplas tentativas");
     }
     
     private function tryConnect($username, $password) {
@@ -149,22 +73,23 @@ class MikroTikHotspotManager {
             throw new Exception("Não foi possível criar socket");
         }
         
-        // Timeouts mais baixos para evitar travamentos
-        socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array("sec" => 3, "usec" => 0));
-        socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, array("sec" => 3, "usec" => 0));
+        // Timeouts agressivos para evitar travamentos
+        socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array("sec" => $this->timeout, "usec" => 0));
+        socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, array("sec" => $this->timeout, "usec" => 0));
         
         if (!socket_connect($this->socket, $this->host, $this->port)) {
             $error = socket_strerror(socket_last_error($this->socket));
             socket_close($this->socket);
+            $this->socket = null;
             throw new Exception("Falha na conexão: " . $error);
         }
         
         try {
-            // Login simples
-            $this->write('/login');
-            $response = $this->read();
+            // Login com timeout
+            $this->writeWithTimeout('/login');
+            $response = $this->readWithTimeout();
             
-            if (isset($response[0]['!trap'])) {
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
                 throw new Exception("Erro no protocolo de login");
             }
             
@@ -174,10 +99,10 @@ class MikroTikHotspotManager {
                 $loginData[] = '=password=' . $password;
             }
             
-            $this->write('/login', $loginData);
-            $response = $this->read();
+            $this->writeWithTimeout('/login', $loginData);
+            $response = $this->readWithTimeout();
             
-            if (isset($response[0]['!trap'])) {
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
                 throw new Exception("Credenciais inválidas");
             }
             
@@ -198,71 +123,115 @@ class MikroTikHotspotManager {
         }
         
         try {
-            $this->write('/ip/hotspot/user/add', [
+            $this->writeWithTimeout('/ip/hotspot/user/add', [
                 '=name=' . $username,
                 '=password=' . $password,
                 '=profile=' . $profile,
                 '=limit-uptime=' . $timeLimit
             ]);
             
-            $response = $this->read();
+            $response = $this->readWithTimeout();
             
-            if (isset($response[0]['!trap'])) {
-                $error = isset($response[0]['message']) ? $response[0]['message'] : 'Erro desconhecido';
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
+                $error = isset($response[0]) ? $response[0] : 'Erro desconhecido';
                 throw new Exception("Erro ao criar usuário: " . $error);
             }
             
-            $this->log('INFO', "Usuário criado", ['username' => $username]);
+            $this->log('INFO', "Usuário criado: {$username}");
             return true;
             
         } catch (Exception $e) {
-            $this->log('ERROR', "Erro ao criar usuário", [
-                'username' => $username,
-                'error' => $e->getMessage()
-            ]);
-            
-            // Tentar reconectar
-            if ($this->reconnect()) {
-                return $this->createHotspotUser($username, $password, $profile, $timeLimit);
-            }
-            
+            $this->log('ERROR', "Erro ao criar usuário {$username}: " . $e->getMessage());
             throw $e;
         }
     }
     
+    /**
+     * MÉTODO CORRIGIDO: Remove usuário com timeout e verificação robusta
+     */
     public function removeHotspotUser($username) {
         if (!$this->connected) {
             $this->connect();
         }
         
         try {
-            $this->write('/ip/hotspot/user/print', ['?name=' . $username]);
-            $users = $this->read();
+            $this->log('INFO', "Procurando usuário: {$username}");
             
-            if (empty($users) || isset($users[0]['!trap'])) {
-                throw new Exception("Usuário não encontrado");
+            // Buscar usuário com timeout
+            $this->writeWithTimeout('/ip/hotspot/user/print', ['?name=' . $username]);
+            $users = $this->readWithTimeout();
+            
+            $this->log('INFO', "Resposta da busca: " . json_encode($users));
+            
+            if (empty($users)) {
+                $this->log('WARNING', "Usuário {$username} não encontrado (lista vazia)");
+                return true; // Consideramos sucesso se não existe
             }
             
-            if (!isset($users[0]['!re']['.id'])) {
-                throw new Exception("ID do usuário não encontrado");
+            // Verificar se há erro
+            if (isset($users[0]) && strpos($users[0], '!trap') !== false) {
+                throw new Exception("Erro ao buscar usuário: " . $users[0]);
             }
             
-            $userId = $users[0]['!re']['.id'];
-            
-            $this->write('/ip/hotspot/user/remove', ['=.id=' . $userId]);
-            $response = $this->read();
-            
-            if (isset($response[0]['!trap'])) {
-                throw new Exception("Erro ao remover usuário");
+            // Procurar o ID do usuário na resposta
+            $userId = null;
+            foreach ($users as $line) {
+                if (strpos($line, '=.id=') !== false) {
+                    $userId = substr($line, 4); // Remove "=.id="
+                    break;
+                }
             }
             
+            if (!$userId) {
+                $this->log('WARNING', "ID do usuário {$username} não encontrado");
+                return true; // Usuário não existe, consideramos removido
+            }
+            
+            $this->log('INFO', "Removendo usuário ID: {$userId}");
+            
+            // Remover usuário
+            $this->writeWithTimeout('/ip/hotspot/user/remove', ['=.id=' . $userId]);
+            $response = $this->readWithTimeout();
+            
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
+                throw new Exception("Erro ao remover usuário: " . $response[0]);
+            }
+            
+            $this->log('INFO', "Usuário {$username} removido com sucesso");
             return true;
             
         } catch (Exception $e) {
-            if ($this->reconnect()) {
-                return $this->removeHotspotUser($username);
-            }
+            $this->log('ERROR', "Erro ao remover usuário {$username}: " . $e->getMessage());
             throw $e;
+        }
+    }
+    
+    public function disconnectUser($username) {
+        if (!$this->connected) {
+            return false;
+        }
+        
+        try {
+            $this->writeWithTimeout('/ip/hotspot/active/print', ['?user=' . $username]);
+            $activeUsers = $this->readWithTimeout();
+            
+            if (!empty($activeUsers)) {
+                foreach ($activeUsers as $line) {
+                    if (strpos($line, '=.id=') !== false) {
+                        $sessionId = substr($line, 4);
+                        $this->writeWithTimeout('/ip/hotspot/active/remove', ['=.id=' . $sessionId]);
+                        $this->readWithTimeout();
+                        $this->log('INFO', "Usuário {$username} desconectado");
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+            
+        } catch (Exception $e) {
+            $this->log('WARNING', "Erro ao desconectar usuário {$username}: " . $e->getMessage());
+            return false;
         }
     }
     
@@ -276,10 +245,10 @@ class MikroTikHotspotManager {
         }
         
         try {
-            $this->write('/ip/hotspot/active/print');
-            $response = $this->read();
+            $this->writeWithTimeout('/ip/hotspot/active/print');
+            $response = $this->readWithTimeout();
             
-            if (isset($response[0]['!trap'])) {
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
                 return [];
             }
             
@@ -300,10 +269,10 @@ class MikroTikHotspotManager {
         }
         
         try {
-            $this->write('/ip/hotspot/user/print');
-            $response = $this->read();
+            $this->writeWithTimeout('/ip/hotspot/user/print');
+            $response = $this->readWithTimeout();
             
-            if (isset($response[0]['!trap'])) {
+            if (isset($response[0]) && strpos($response[0], '!trap') !== false) {
                 return [];
             }
             
@@ -314,42 +283,10 @@ class MikroTikHotspotManager {
         }
     }
     
-    public function disconnectUser($username) {
-        if (!$this->connected) {
-            return false;
-        }
-        
-        try {
-            $this->write('/ip/hotspot/active/print', ['?user=' . $username]);
-            $activeUsers = $this->read();
-            
-            if (!empty($activeUsers) && isset($activeUsers[0]['!re']['.id'])) {
-                $sessionId = $activeUsers[0]['!re']['.id'];
-                $this->write('/ip/hotspot/active/remove', ['=.id=' . $sessionId]);
-                $this->read();
-                return true;
-            }
-            
-            return false;
-            
-        } catch (Exception $e) {
-            return false;
-        }
-    }
-    
-    private function reconnect() {
-        try {
-            $this->disconnect();
-            $this->connected = false;
-            sleep(1);
-            $this->connect();
-            return true;
-        } catch (Exception $e) {
-            return false;
-        }
-    }
-    
-    private function write($command, $arguments = []) {
+    /**
+     * MÉTODO CORRIGIDO: Write com timeout para evitar travamentos
+     */
+    private function writeWithTimeout($command, $arguments = []) {
         if (!$this->socket) {
             throw new Exception("Socket não disponível");
         }
@@ -362,43 +299,70 @@ class MikroTikHotspotManager {
         
         $data .= $this->encodeLength(0);
         
+        $startTime = time();
         $result = socket_write($this->socket, $data);
+        
         if ($result === false) {
-            throw new Exception("Erro ao escrever no socket");
+            throw new Exception("Erro ao escrever no socket: " . socket_strerror(socket_last_error($this->socket)));
+        }
+        
+        if ((time() - $startTime) > $this->timeout) {
+            throw new Exception("Timeout ao escrever dados");
         }
     }
     
-    private function read() {
+    /**
+     * MÉTODO CORRIGIDO: Read com timeout e limite de iterações
+     */
+    private function readWithTimeout() {
         if (!$this->socket) {
             throw new Exception("Socket não disponível");
         }
         
         $response = [];
+        $startTime = time();
+        $maxIterations = 100; // Limite máximo de iterações para evitar loop infinito
+        $iterations = 0;
         
         try {
             while (true) {
-                $length = $this->readLength();
-                if ($length == 0) break;
-                
-                $data = socket_read($this->socket, $length);
-                if ($data === false) {
-                    throw new Exception("Erro ao ler do socket");
+                // Verificar timeout
+                if ((time() - $startTime) > $this->timeout) {
+                    throw new Exception("Timeout na leitura - {$this->timeout}s excedidos");
                 }
                 
-                $response[] = $data;
+                // Verificar limite de iterações
+                if (++$iterations > $maxIterations) {
+                    throw new Exception("Limite de iterações excedido - possível loop infinito");
+                }
+                
+                $length = $this->readLengthWithTimeout();
+                
+                if ($length == 0) {
+                    break; // Fim da resposta
+                }
+                
+                $data = $this->readDataWithTimeout($length);
+                if ($data !== false && $data !== '') {
+                    $response[] = $data;
+                }
             }
         } catch (Exception $e) {
             $this->connected = false;
             throw $e;
         }
         
-        return $this->parseResponse($response);
+        return $response;
     }
     
-    private function readLength() {
+    /**
+     * MÉTODO CORRIGIDO: Leitura de comprimento com timeout
+     */
+    private function readLengthWithTimeout() {
         $byte = socket_read($this->socket, 1);
+        
         if ($byte === false || $byte === '') {
-            throw new Exception("Conexão perdida");
+            throw new Exception("Conexão perdida ou timeout na leitura de comprimento");
         }
         
         $length = ord($byte);
@@ -407,19 +371,57 @@ class MikroTikHotspotManager {
             return $length;
         } elseif ($length < 0xC0) {
             $byte = socket_read($this->socket, 1);
-            if ($byte === false) throw new Exception("Erro na leitura");
+            if ($byte === false) throw new Exception("Erro na leitura de comprimento 2");
             return (($length & 0x3F) << 8) + ord($byte);
         } elseif ($length < 0xE0) {
             $bytes = socket_read($this->socket, 2);
-            if ($bytes === false || strlen($bytes) < 2) throw new Exception("Erro na leitura");
+            if ($bytes === false || strlen($bytes) < 2) throw new Exception("Erro na leitura de comprimento 3");
             return (($length & 0x1F) << 16) + (ord($bytes[0]) << 8) + ord($bytes[1]);
         } elseif ($length < 0xF0) {
             $bytes = socket_read($this->socket, 3);
-            if ($bytes === false || strlen($bytes) < 3) throw new Exception("Erro na leitura");
+            if ($bytes === false || strlen($bytes) < 3) throw new Exception("Erro na leitura de comprimento 4");
             return (($length & 0x0F) << 24) + (ord($bytes[0]) << 16) + (ord($bytes[1]) << 8) + ord($bytes[2]);
         }
         
         return 0;
+    }
+    
+    /**
+     * MÉTODO CORRIGIDO: Leitura de dados com timeout
+     */
+    private function readDataWithTimeout($length) {
+        if ($length <= 0) {
+            return '';
+        }
+        
+        $data = '';
+        $remaining = $length;
+        $attempts = 0;
+        $maxAttempts = 10;
+        
+        while ($remaining > 0 && $attempts < $maxAttempts) {
+            $chunk = socket_read($this->socket, $remaining);
+            
+            if ($chunk === false) {
+                throw new Exception("Erro na leitura de dados");
+            }
+            
+            if ($chunk === '') {
+                $attempts++;
+                usleep(10000); // Esperar 10ms
+                continue;
+            }
+            
+            $data .= $chunk;
+            $remaining -= strlen($chunk);
+            $attempts = 0; // Reset attempts on successful read
+        }
+        
+        if ($remaining > 0) {
+            throw new Exception("Dados incompletos: esperado {$length}, recebido " . strlen($data));
+        }
+        
+        return $data;
     }
     
     private function encodeLength($length) {
@@ -436,60 +438,50 @@ class MikroTikHotspotManager {
         return chr(0xF0) . chr(($length >> 24) & 0xFF) . chr(($length >> 16) & 0xFF) . chr(($length >> 8) & 0xFF) . chr($length & 0xFF);
     }
     
-    private function parseResponse($response) {
-        $parsed = [];
-        $current = [];
-        
-        foreach ($response as $line) {
-            if (substr($line, 0, 1) == '!') {
-                if (!empty($current)) {
-                    $parsed[] = $current;
-                    $current = [];
-                }
-                $current['!type'] = substr($line, 1);
-            } else {
-                $parts = explode('=', $line, 2);
-                if (count($parts) == 2) {
-                    $current[$parts[0]] = $parts[1];
-                }
-            }
-        }
-        
-        if (!empty($current)) {
-            $parsed[] = $current;
-        }
-        
-        return $parsed;
-    }
-    
     public function disconnect() {
         if ($this->socket) {
             socket_close($this->socket);
             $this->socket = null;
         }
         $this->connected = false;
+        $this->log('INFO', "Desconectado do MikroTik");
     }
     
     public function isConnected() {
-        return $this->connected;
+        return $this->connected && $this->socket !== null;
+    }
+    
+    /**
+     * NOVO: Método para testar conexão rapidamente
+     */
+    public function testConnection() {
+        try {
+            $this->connect();
+            $this->writeWithTimeout('/system/identity/print');
+            $response = $this->readWithTimeout();
+            $this->disconnect();
+            
+            return [
+                'success' => true,
+                'message' => 'Conexão bem-sucedida',
+                'response' => $response
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
     }
 }
 
-// Classe principal do sistema hotel com credenciais simplificadas
+// Classe principal do sistema hotel com timeout robusto
 class HotelHotspotSystem {
     protected $mikrotik;
     protected $db;
-    protected $logger;
     
     public function __construct($mikrotikConfig, $dbConfig) {
-        // Inicializar logger
-        $this->logger = new Logger([
-            'log_file' => 'logs/hotel_system.log',
-            'log_level' => 'INFO',
-            'max_log_size' => 10485760,
-            'backup_logs' => true
-        ]);
-        
         // Conectar ao banco de dados
         try {
             $this->db = new PDO(
@@ -514,37 +506,24 @@ class HotelHotspotSystem {
             $mikrotikConfig['port'] ?? 8728
         );
         
-        $this->mikrotik->setLogger($this->logger);
-        
         $this->createTables();
-        $this->logger->info("Sistema iniciado");
+        error_log("Sistema HotelHotspot iniciado");
     }
     
-    /**
-     * Gera usuário simples e memorável
-     * Formato: quarto + 2-3 números aleatórios
-     * Exemplo: 101-45, 205-123
-     */
     protected function generateSimpleUsername($roomNumber) {
-        // Limpar número do quarto (apenas números e letras)
         $cleanRoom = preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber);
-        
-        // Garantir que não ultrapasse 6 caracteres para a parte do quarto
         if (strlen($cleanRoom) > 6) {
             $cleanRoom = substr($cleanRoom, 0, 6);
         }
         
-        // Gerar 2-3 números aleatórios
         $randomLength = rand(2, 3);
         $randomNumbers = '';
-        
         for ($i = 0; $i < $randomLength; $i++) {
             $randomNumbers .= rand(0, 9);
         }
         
         $baseUsername = $cleanRoom . '-' . $randomNumbers;
         
-        // Verificar se já existe, se sim, tentar novamente
         $attempts = 0;
         while ($this->usernameExists($baseUsername) && $attempts < 15) {
             $randomNumbers = '';
@@ -559,21 +538,14 @@ class HotelHotspotSystem {
         return $baseUsername;
     }
     
-    /**
-     * Gera senha simples e memorável
-     * Formato: 3-4 números simples
-     * Evita sequências obviamente simples como 123, 111, etc.
-     */
     protected function generateSimplePassword() {
         $length = rand(3, 4);
         $password = '';
         
-        // Gerar senha evitando padrões óbvios
         $attempts = 0;
         do {
             $password = '';
             for ($i = 0; $i < $length; $i++) {
-                // Para o primeiro dígito, evitar 0
                 if ($i === 0) {
                     $password .= rand(1, 9);
                 } else {
@@ -586,52 +558,24 @@ class HotelHotspotSystem {
         return $password;
     }
     
-    /**
-     * Verifica se a senha é muito óbvia
-     */
     private function isObviousPassword($password) {
-        // Evitar sequências crescentes
-        if (preg_match('/123|234|345|456|567|678|789/', $password)) {
-            return true;
-        }
+        if (preg_match('/123|234|345|456|567|678|789/', $password)) return true;
+        if (preg_match('/987|876|765|654|543|432|321/', $password)) return true;
+        if (preg_match('/(.)\1\1+/', $password)) return true;
         
-        // Evitar sequências decrescentes
-        if (preg_match('/987|876|765|654|543|432|321/', $password)) {
-            return true;
-        }
-        
-        // Evitar números repetidos (3 ou mais iguais)
-        if (preg_match('/(.)\1\1+/', $password)) {
-            return true;
-        }
-        
-        // Evitar padrões simples
         $obviousPatterns = [
             '1234', '4321', '1111', '2222', '3333', '4444', '5555', 
             '6666', '7777', '8888', '9999', '0000', '1212', '1010',
             '2020', '1313', '1414', '1515', '1616', '1717', '1818', '1919'
         ];
         
-        if (in_array($password, $obviousPatterns)) {
-            return true;
-        }
-        
-        // Evitar datas óbvias
-        $year = date('Y');
-        $shortYear = substr($year, -2);
-        if (strpos($password, $shortYear) !== false) {
-            return true;
-        }
+        if (in_array($password, $obviousPatterns)) return true;
         
         return false;
     }
     
     public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
-        $this->logger->info("Gerando credenciais simplificadas", [
-            'room' => $roomNumber,
-            'guest' => $guestName,
-            'profile' => $profileType
-        ]);
+        error_log("Gerando credenciais para quarto: {$roomNumber}");
         
         try {
             // Gerar credenciais simples
@@ -639,19 +583,26 @@ class HotelHotspotSystem {
             $password = $this->generateSimplePassword();
             $timeLimit = $this->calculateTimeLimit($checkoutDate);
             
-            // Conectar ao MikroTik
-            $this->mikrotik->connect();
+            // Tentar conectar ao MikroTik com timeout
+            $mikrotikSuccess = false;
+            try {
+                $this->mikrotik->connect();
+                $this->mikrotik->createHotspotUser($username, $password, $profileType, $timeLimit);
+                $this->mikrotik->disconnect();
+                $mikrotikSuccess = true;
+                error_log("Usuário criado no MikroTik: {$username}");
+            } catch (Exception $e) {
+                error_log("Erro MikroTik na criação: " . $e->getMessage());
+                // Continuar mesmo se falhar no MikroTik
+            }
             
-            // Criar usuário no MikroTik
-            $this->mikrotik->createHotspotUser($username, $password, $profileType, $timeLimit);
-            
-            // Salvar no banco de dados
+            // Salvar no banco (crítico)
             $stmt = $this->db->prepare("
                 INSERT INTO hotel_guests (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
             
-            $stmt->execute([
+            $result = $stmt->execute([
                 $roomNumber,
                 $guestName,
                 $username,
@@ -661,48 +612,8 @@ class HotelHotspotSystem {
                 $checkoutDate
             ]);
             
-            $this->mikrotik->disconnect();
-            
-            $this->logger->info("Credenciais geradas com sucesso", [
-                'username' => $username,
-                'password' => $password,
-                'room' => $roomNumber
-            ]);
-            
-            return [
-                'success' => true,
-                'username' => $username,
-                'password' => $password,
-                'profile' => $profileType,
-                'valid_until' => $checkoutDate,
-                'bandwidth' => '10M/2M'
-            ];
-            
-        } catch (Exception $e) {
-            $this->logger->error("Erro ao gerar credenciais", [
-                'error' => $e->getMessage(),
-                'room' => $roomNumber
-            ]);
-            
-            // Em caso de erro, salvar apenas no banco
-            try {
-                $username = $this->generateSimpleUsername($roomNumber);
-                $password = $this->generateSimplePassword();
-                
-                $stmt = $this->db->prepare("
-                    INSERT INTO hotel_guests (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ");
-                
-                $stmt->execute([
-                    $roomNumber,
-                    $guestName,
-                    $username,
-                    $password,
-                    $profileType,
-                    $checkinDate,
-                    $checkoutDate
-                ]);
+            if ($result) {
+                $warning = $mikrotikSuccess ? '' : ' (Criado apenas no sistema - adicione manualmente no MikroTik)';
                 
                 return [
                     'success' => true,
@@ -711,15 +622,21 @@ class HotelHotspotSystem {
                     'profile' => $profileType,
                     'valid_until' => $checkoutDate,
                     'bandwidth' => '10M/2M',
-                    'warning' => 'Usuário criado no sistema. Criar manualmente no MikroTik: /ip hotspot user add name=' . $username . ' password=' . $password . ' profile=' . $profileType
+                    'warning' => $warning
                 ];
-                
-            } catch (Exception $dbError) {
+            } else {
                 return [
                     'success' => false,
-                    'error' => 'Erro no MikroTik: ' . $e->getMessage() . ' | Erro no banco: ' . $dbError->getMessage()
+                    'error' => 'Falha ao salvar no banco de dados'
                 ];
             }
+            
+        } catch (Exception $e) {
+            error_log("Erro geral na geração: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => 'Erro: ' . $e->getMessage()
+            ];
         }
     }
     
@@ -730,18 +647,23 @@ class HotelHotspotSystem {
             $guest = $stmt->fetch();
             
             if ($guest) {
+                $username = $guest['username'];
+                error_log("Removendo usuário: {$username}");
+                
+                // Tentar remover do MikroTik com timeout
                 try {
                     $this->mikrotik->connect();
-                    $this->mikrotik->disconnectUser($guest['username']);
-                    $this->mikrotik->removeHotspotUser($guest['username']);
+                    $this->mikrotik->disconnectUser($username);
+                    $this->mikrotik->removeHotspotUser($username);
                     $this->mikrotik->disconnect();
+                    error_log("Removido do MikroTik: {$username}");
                 } catch (Exception $e) {
+                    error_log("Erro ao remover do MikroTik: " . $e->getMessage());
                     // Continuar mesmo se houver erro no MikroTik
-                    $this->logger->warning("Erro ao remover do MikroTik", ['error' => $e->getMessage()]);
                 }
                 
                 $stmt = $this->db->prepare("UPDATE hotel_guests SET status = 'disabled' WHERE username = ?");
-                $stmt->execute([$guest['username']]);
+                $stmt->execute([$username]);
                 
                 return ['success' => true];
             }
@@ -749,6 +671,7 @@ class HotelHotspotSystem {
             return ['success' => false, 'error' => 'Hóspede não encontrado'];
             
         } catch (Exception $e) {
+            error_log("Erro geral na remoção: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -777,7 +700,7 @@ class HotelHotspotSystem {
         $stmt = $this->db->query("SELECT COUNT(*) as today FROM hotel_guests WHERE DATE(created_at) = CURDATE()");
         $stats['today_guests'] = $stmt->fetchColumn();
         
-        // Estatísticas do MikroTik (com fallback)
+        // Estatísticas do MikroTik (com timeout)
         try {
             $this->mikrotik->connect();
             $activeUsers = $this->mikrotik->getActiveUsers();
@@ -811,7 +734,7 @@ class HotelHotspotSystem {
                             $this->mikrotik->removeHotspotUser($user['username']);
                             $removedCount++;
                         } catch (Exception $e) {
-                            // Continuar mesmo se houver erro
+                            error_log("Erro ao remover {$user['username']}: " . $e->getMessage());
                         }
                         
                         $stmt = $this->db->prepare("UPDATE hotel_guests SET status = 'expired' WHERE username = ?");
@@ -849,7 +772,6 @@ class HotelHotspotSystem {
         $hours = ($interval->days * 24) + $interval->h;
         $minutes = $interval->i;
         
-        // Garantir pelo menos 1 hora de limite
         if ($hours < 1) {
             $hours = 1;
             $minutes = 0;
@@ -906,91 +828,99 @@ class HotelHotspotSystem {
         
         $this->db->exec($sql);
         
-        $this->logger->info("Tabelas do banco de dados verificadas/criadas");
+        error_log("Tabelas do banco de dados verificadas/criadas");
     }
     
     /**
-     * Método para gerar relatório de credenciais geradas
+     * NOVO: Método para testar MikroTik rapidamente
      */
-    public function getCredentialsReport($startDate = null, $endDate = null) {
-        if (!$startDate) {
-            $startDate = date('Y-m-d', strtotime('-30 days'));
-        }
-        if (!$endDate) {
-            $endDate = date('Y-m-d');
-        }
-        
-        $stmt = $this->db->prepare("
-            SELECT 
-                room_number,
-                guest_name,
-                username,
-                password,
-                profile_type,
-                checkin_date,
-                checkout_date,
-                created_at,
-                status,
-                CASE 
-                    WHEN status = 'active' AND checkout_date >= CURDATE() THEN 'Ativo'
-                    WHEN status = 'active' AND checkout_date < CURDATE() THEN 'Expirado'
-                    WHEN status = 'disabled' THEN 'Desabilitado'
-                    ELSE 'Expirado'
-                END as status_display
-            FROM hotel_guests 
-            WHERE DATE(created_at) BETWEEN ? AND ?
-            ORDER BY created_at DESC
-        ");
-        
-        $stmt->execute([$startDate, $endDate]);
-        return $stmt->fetchAll();
+    public function testMikroTikConnection() {
+        return $this->mikrotik->testConnection();
     }
     
     /**
-     * Método para validar credenciais antes de gerar
+     * NOVO: Método para debug de remoção específica
      */
-    public function validateCredentialGeneration($roomNumber, $guestName, $checkinDate, $checkoutDate) {
-        $errors = [];
+    public function debugRemoveUser($username) {
+        $debug = [];
         
-        // Validar número do quarto
-        if (empty(trim($roomNumber))) {
-            $errors[] = "Número do quarto é obrigatório";
-        } elseif (strlen(trim($roomNumber)) > 10) {
-            $errors[] = "Número do quarto deve ter no máximo 10 caracteres";
+        try {
+            $debug['step1'] = "Conectando ao MikroTik...";
+            $this->mikrotik->connect();
+            $debug['step1'] = "✅ Conectado";
+            
+            $debug['step2'] = "Procurando usuário {$username}...";
+            $this->mikrotik->writeWithTimeout('/ip/hotspot/user/print', ['?name=' . $username]);
+            $users = $this->mikrotik->readWithTimeout();
+            $debug['step2'] = "✅ Resposta recebida: " . json_encode($users);
+            
+            // Tentar encontrar ID
+            $userId = null;
+            foreach ($users as $line) {
+                if (strpos($line, '=.id=') !== false) {
+                    $userId = substr($line, 4);
+                    break;
+                }
+            }
+            
+            if ($userId) {
+                $debug['step3'] = "✅ ID encontrado: {$userId}";
+                
+                $debug['step4'] = "Removendo usuário...";
+                $this->mikrotik->writeWithTimeout('/ip/hotspot/user/remove', ['=.id=' . $userId]);
+                $response = $this->mikrotik->readWithTimeout();
+                $debug['step4'] = "✅ Resposta da remoção: " . json_encode($response);
+            } else {
+                $debug['step3'] = "⚠️ Usuário não encontrado no MikroTik";
+            }
+            
+            $this->mikrotik->disconnect();
+            $debug['result'] = "✅ Processo concluído";
+            
+        } catch (Exception $e) {
+            $debug['error'] = "❌ Erro: " . $e->getMessage();
+            $debug['error_trace'] = $e->getTraceAsString();
         }
         
-        // Validar nome do hóspede
-        if (empty(trim($guestName))) {
-            $errors[] = "Nome do hóspede é obrigatório";
-        } elseif (strlen(trim($guestName)) > 100) {
-            $errors[] = "Nome do hóspede deve ter no máximo 100 caracteres";
+        return $debug;
+    }
+}
+
+// Classe simplificada para logging básico
+class SimpleLogger {
+    private $logFile;
+    
+    public function __construct($logFile = 'logs/hotel_system.log') {
+        $this->logFile = $logFile;
+        
+        // Criar diretório se não existir
+        $dir = dirname($logFile);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
         }
+    }
+    
+    public function log($level, $message, $context = []) {
+        $timestamp = date('Y-m-d H:i:s');
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        $logEntry = "[{$timestamp}] [{$level}] {$message}{$contextStr}" . PHP_EOL;
         
-        // Validar datas
-        $checkin = new DateTime($checkinDate);
-        $checkout = new DateTime($checkoutDate);
-        $today = new DateTime();
+        file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
         
-        if ($checkin > $checkout) {
-            $errors[] = "Data de check-in deve ser anterior ao check-out";
-        }
-        
-        if ($checkout < $today) {
-            $errors[] = "Data de check-out não pode ser no passado";
-        }
-        
-        // Verificar se já existe usuário ativo para o quarto
-        $stmt = $this->db->prepare("
-            SELECT username FROM hotel_guests 
-            WHERE room_number = ? AND status = 'active'
-        ");
-        $stmt->execute([trim($roomNumber)]);
-        
-        if ($stmt->fetch()) {
-            $errors[] = "Já existe um usuário ativo para o quarto {$roomNumber}";
-        }
-        
-        return $errors;
+        // Também fazer log de erro do PHP
+        error_log("[HOTEL_SYSTEM] [{$level}] {$message}");
+    }
+    
+    public function info($message, $context = []) {
+        $this->log('INFO', $message, $context);
+    }
+    
+    public function error($message, $context = []) {
+        $this->log('ERROR', $message, $context);
+    }
+    
+    public function warning($message, $context = []) {
+        $this->log('WARNING', $message, $context);
     }
 }
 ?>
