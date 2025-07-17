@@ -2581,3 +2581,117 @@
 [2025-07-17 00:10:09] [INFO] Conexão estabelecida {"user":"hotel-system"}
 [2025-07-17 00:10:09] [INFO] Tentando conectar {"host":"10.0.1.1","port":8728,"user":"hotel-system"}
 [2025-07-17 00:10:09] [INFO] Conexão estabelecida {"user":"hotel-system"}
+[2025-07-17 09:37:03] [INFO] MikroTik Manager inicializado para 10.0.1.1:8728
+[2025-07-17 09:37:03] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 09:37:03] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 09:37:03] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =ret=3a0f03ac0ed81ce568102f16bb7c3581
+[2025-07-17 09:37:03] [DEBUG] Resposta lida: 2 linhas em 2 iterações
+[2025-07-17 09:37:03] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:37:03] [DEBUG] Resposta lida: 1 linhas em 1 iterações
+[2025-07-17 09:37:03] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 09:37:03] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: !re
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =.id=*0
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =name=default-trial
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =uptime=0s
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =bytes-in=0
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =bytes-out=0
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =packets-in=0
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =packets-out=0
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =default=true
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =dynamic=false
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =disabled=false
+[2025-07-17 09:37:03] [DEBUG] Dados recebidos: =comment=counters and limits for trial users
+[2025-07-17 09:37:03] [DEBUG] Resposta lida: 12 linhas em 12 iterações
+[2025-07-17 09:37:03] [INFO] Parser encontrou 1 usuários
+[2025-07-17 09:37:03] [DEBUG]   - ID: =*0, Nome: default-trial
+[2025-07-17 09:37:03] [INFO] Desconectado do MikroTik
+[2025-07-17 09:37:32] [INFO] MikroTik Manager inicializado para 10.0.1.1:8728
+[2025-07-17 09:37:32] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 09:37:32] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 09:37:32] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =ret=da18c235130fee89799a31d0ef060eef
+[2025-07-17 09:37:32] [DEBUG] Resposta lida: 2 linhas em 2 iterações
+[2025-07-17 09:37:32] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:37:32] [DEBUG] Resposta lida: 1 linhas em 1 iterações
+[2025-07-17 09:37:32] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 09:37:32] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: !re
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =.id=*0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =name=default-trial
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =uptime=0s
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =bytes-in=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =bytes-out=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =packets-in=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =packets-out=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =default=true
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =dynamic=false
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =disabled=false
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =comment=counters and limits for trial users
+[2025-07-17 09:37:32] [DEBUG] Resposta lida: 12 linhas em 12 iterações
+[2025-07-17 09:37:32] [INFO] Parser encontrou 1 usuários
+[2025-07-17 09:37:32] [DEBUG]   - ID: =*0, Nome: default-trial
+[2025-07-17 09:37:32] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: !re
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =.id=*1
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =name=admin-recepcao
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =password=admin123
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =profile=default
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =uptime=0s
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =bytes-in=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =bytes-out=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =packets-in=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =packets-out=0
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =dynamic=false
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =disabled=false
+[2025-07-17 09:37:32] [DEBUG] Dados recebidos: =comment=Usuario permanente da recepcao
+[2025-07-17 09:37:32] [DEBUG] Resposta lida: 13 linhas em 13 iterações
+[2025-07-17 09:37:32] [INFO] Desconectado do MikroTik
+[2025-07-17 09:39:07] [INFO] MikroTik Manager inicializado para 10.0.1.1:8728
+[2025-07-17 09:39:07] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 09:39:07] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 09:39:07] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =ret=c8164ab699d3604c901471035fb6d2ed
+[2025-07-17 09:39:07] [DEBUG] Resposta lida: 2 linhas em 2 iterações
+[2025-07-17 09:39:07] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: !done
+[2025-07-17 09:39:07] [DEBUG] Resposta lida: 1 linhas em 1 iterações
+[2025-07-17 09:39:07] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 09:39:07] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: !re
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =.id=*0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =name=default-trial
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =uptime=0s
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =bytes-in=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =bytes-out=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =packets-in=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =packets-out=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =default=true
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =dynamic=false
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =disabled=false
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =comment=counters and limits for trial users
+[2025-07-17 09:39:07] [DEBUG] Resposta lida: 12 linhas em 12 iterações
+[2025-07-17 09:39:07] [INFO] Parser encontrou 1 usuários
+[2025-07-17 09:39:07] [DEBUG]   - ID: =*0, Nome: default-trial
+[2025-07-17 09:39:07] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: !re
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =.id=*1
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =name=admin-recepcao
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =password=admin123
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =profile=default
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =uptime=0s
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =bytes-in=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =bytes-out=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =packets-in=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =packets-out=0
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =dynamic=false
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =disabled=false
+[2025-07-17 09:39:07] [DEBUG] Dados recebidos: =comment=Usuario permanente da recepcao
+[2025-07-17 09:39:07] [DEBUG] Resposta lida: 13 linhas em 13 iterações
+[2025-07-17 09:39:07] [INFO] Desconectado do MikroTik

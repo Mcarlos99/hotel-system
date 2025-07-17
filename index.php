@@ -32,7 +32,7 @@ class HotelHotspotSystemFixed {
         
         // Conectar ao MikroTik (opcional)
         try {
-            $this->mikrotik = new MikroTikHotspotManager(
+            $this->mikrotik = new MikroTikHotspotManagerFixed(
                 $mikrotikConfig['host'],
                 $mikrotikConfig['username'],
                 $mikrotikConfig['password'],
