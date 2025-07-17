@@ -2695,3 +2695,578 @@
 [2025-07-17 09:39:07] [DEBUG] Dados recebidos: =comment=Usuario permanente da recepcao
 [2025-07-17 09:39:07] [DEBUG] Resposta lida: 13 linhas em 13 iterações
 [2025-07-17 09:39:07] [INFO] Desconectado do MikroTik
+[2025-07-17 11:03:49] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:03:49] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:03:49] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:03:49] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /system/identity/print (24 bytes)
+[2025-07-17 11:03:49] [INFO] Desconectado do MikroTik
+[2025-07-17 11:03:49] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:03:49] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:03:49] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:03:49] [INFO] === TESTE DE EXTRAÇÃO DE DADOS BRUTOS ===
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:03:49] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:03:49] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 11:03:49] [DEBUG] Chunk 2: 579 bytes
+[2025-07-17 11:03:49] [INFO] Fim dos dados detectado
+[2025-07-17 11:03:49] [INFO] Captura concluída: 2 chunks, 767 bytes
+[2025-07-17 11:03:49] [INFO] Dados brutos capturados: 767 bytes
+[2025-07-17 11:03:49] [INFO] Análise estrutural {"total_bytes":767,"re_count":4,"done_count":1,"name_count":4,"id_count":4,"password_count":3,"profile_count":3}
+[2025-07-17 11:03:49] [INFO] Resultados dos métodos de parsing {"method1":4,"method2":6,"method3":14}
+[2025-07-17 11:03:49] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:03:49] [INFO] Desconectado do MikroTik
+[2025-07-17 11:03:49] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:03:49] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:03:49] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:03:49] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:03:49] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:03:49] [DEBUG] Chunk 1: 767 bytes
+[2025-07-17 11:03:49] [INFO] Fim dos dados detectado
+[2025-07-17 11:03:49] [INFO] Captura concluída: 1 chunks, 767 bytes
+[2025-07-17 11:03:49] [INFO] Dados brutos capturados: 767 bytes
+[2025-07-17 11:03:49] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:03:49] [INFO] Método 1 (padrões): 4 usuários
+[2025-07-17 11:03:49] [INFO] Método 2 (sequência): 6 usuários
+[2025-07-17 11:03:49] [INFO] Método 3 (estrutura): 14 usuários
+[2025-07-17 11:03:49] [INFO] Melhor método: method3 com 14 usuários
+[2025-07-17 11:03:49] [INFO] Usuários finais após remoção de duplicatas: 4
+[2025-07-17 11:03:49] [INFO] Parser de dados brutos encontrou 4 usuários
+[2025-07-17 11:03:49] [INFO] Usuário 1: default-trial
+[2025-07-17 11:03:49] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:03:49] [INFO] Usuário 3: guest_103
+[2025-07-17 11:03:49] [INFO] Usuário 4: 37-90
+[2025-07-17 11:03:49] [INFO] Desconectado do MikroTik
+[2025-07-17 11:05:01] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:05:01] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:05:01] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:05:01] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:05:01] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:05:01] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:05:01] [INFO] === REMOVENDO USUÁRIO COM PARSER DE DADOS BRUTOS: 37-90 ===
+[2025-07-17 11:05:01] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:05:01] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:05:01] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:05:01] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 11:05:01] [DEBUG] Chunk 2: 579 bytes
+[2025-07-17 11:05:01] [INFO] Fim dos dados detectado
+[2025-07-17 11:05:01] [INFO] Captura concluída: 2 chunks, 767 bytes
+[2025-07-17 11:05:01] [INFO] Dados brutos capturados: 767 bytes
+[2025-07-17 11:05:01] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:05:01] [INFO] Método 1 (padrões): 4 usuários
+[2025-07-17 11:05:01] [INFO] Método 2 (sequência): 6 usuários
+[2025-07-17 11:05:01] [INFO] Método 3 (estrutura): 14 usuários
+[2025-07-17 11:05:01] [INFO] Melhor método: method3 com 14 usuários
+[2025-07-17 11:05:01] [INFO] Usuários finais após remoção de duplicatas: 4
+[2025-07-17 11:05:01] [INFO] Parser de dados brutos encontrou 4 usuários
+[2025-07-17 11:05:01] [INFO] Usuário 1: default-trial
+[2025-07-17 11:05:01] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:05:01] [INFO] Usuário 3: guest_103
+[2025-07-17 11:05:01] [INFO] Usuário 4: 37-90
+[2025-07-17 11:05:01] [INFO] Usuário encontrado - ID: *A
+[2025-07-17 11:05:01] [DEBUG] Comando enviado: /ip/hotspot/user/remove (33 bytes)
+[2025-07-17 11:05:02] [INFO] Comando de remoção executado
+[2025-07-17 11:05:02] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:05:02] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:05:02] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:05:02] [DEBUG] Chunk 1: 589 bytes
+[2025-07-17 11:05:02] [INFO] Fim dos dados detectado
+[2025-07-17 11:05:02] [INFO] Captura concluída: 1 chunks, 589 bytes
+[2025-07-17 11:05:02] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:05:02] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:05:02] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 11:05:02] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 11:05:02] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 11:05:02] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 11:05:02] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 11:05:02] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 11:05:02] [INFO] Usuário 1: default-trial
+[2025-07-17 11:05:02] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:05:02] [INFO] Usuário 3: guest_103
+[2025-07-17 11:05:02] [INFO] 🎉 CONFIRMADO: Usuário 37-90 foi REALMENTE removido
+[2025-07-17 11:05:02] [INFO] Desconectado do MikroTik
+[2025-07-17 11:06:47] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:06:58] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:08:10] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:08:10] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:08:10] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:08:10] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:08:10] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:08:10] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:08:10] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:08:10] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:08:10] [DEBUG] Chunk 1: 331 bytes
+[2025-07-17 11:08:30] [WARNING] Erro na leitura do socket
+[2025-07-17 11:08:30] [INFO] Captura concluída: 1 chunks, 331 bytes
+[2025-07-17 11:08:30] [INFO] Desconectado do MikroTik
+[2025-07-17 11:08:34] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:08:34] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:08:34] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:08:34] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:08:34] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:08:34] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:08:34] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:08:34] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:08:34] [DEBUG] Chunk 1: 331 bytes
+[2025-07-17 11:08:54] [WARNING] Erro na leitura do socket
+[2025-07-17 11:08:54] [INFO] Captura concluída: 1 chunks, 331 bytes
+[2025-07-17 11:08:54] [INFO] Desconectado do MikroTik
+[2025-07-17 11:09:09] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:09:09] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:09:09] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:09:09] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:09:09] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:09:09] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:09:09] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:09:09] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:09:09] [DEBUG] Chunk 1: 331 bytes
+[2025-07-17 11:09:29] [WARNING] Erro na leitura do socket
+[2025-07-17 11:09:29] [INFO] Captura concluída: 1 chunks, 331 bytes
+[2025-07-17 11:09:29] [INFO] Desconectado do MikroTik
+[2025-07-17 11:09:52] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:09:52] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:09:52] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:09:52] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:09:52] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:09:52] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:09:52] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:09:52] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:09:52] [DEBUG] Chunk 1: 330 bytes
+[2025-07-17 11:10:12] [WARNING] Erro na leitura do socket
+[2025-07-17 11:10:12] [INFO] Captura concluída: 1 chunks, 330 bytes
+[2025-07-17 11:10:12] [INFO] Desconectado do MikroTik
+[2025-07-17 11:10:52] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:10:52] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:10:52] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:10:52] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:10:52] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:10:52] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:10:52] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:10:52] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:10:52] [DEBUG] Chunk 1: 330 bytes
+[2025-07-17 11:11:12] [WARNING] Erro na leitura do socket
+[2025-07-17 11:11:12] [INFO] Captura concluída: 1 chunks, 330 bytes
+[2025-07-17 11:11:12] [INFO] Desconectado do MikroTik
+[2025-07-17 11:11:23] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:11:23] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:11:23] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:11:23] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /system/identity/print (24 bytes)
+[2025-07-17 11:11:23] [INFO] Desconectado do MikroTik
+[2025-07-17 11:11:23] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:11:23] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:11:23] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:11:23] [INFO] === TESTE DE EXTRAÇÃO DE DADOS BRUTOS ===
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:11:23] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:11:23] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 11:11:23] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 11:11:23] [INFO] Fim dos dados detectado
+[2025-07-17 11:11:23] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 11:11:23] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:11:23] [INFO] Análise estrutural {"total_bytes":589,"re_count":3,"done_count":1,"name_count":3,"id_count":3,"password_count":2,"profile_count":2}
+[2025-07-17 11:11:23] [INFO] Resultados dos métodos de parsing {"method1":3,"method2":5,"method3":10}
+[2025-07-17 11:11:23] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:11:23] [INFO] Desconectado do MikroTik
+[2025-07-17 11:11:23] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:11:23] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:11:23] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:11:23] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:11:23] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:11:23] [DEBUG] Chunk 1: 589 bytes
+[2025-07-17 11:11:23] [INFO] Fim dos dados detectado
+[2025-07-17 11:11:23] [INFO] Captura concluída: 1 chunks, 589 bytes
+[2025-07-17 11:11:23] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:11:23] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:11:23] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 11:11:23] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 11:11:23] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 11:11:23] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 11:11:23] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 11:11:23] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 11:11:23] [INFO] Usuário 1: default-trial
+[2025-07-17 11:11:23] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:11:23] [INFO] Usuário 3: guest_103
+[2025-07-17 11:11:23] [INFO] Desconectado do MikroTik
+[2025-07-17 11:12:54] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:12:54] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:12:54] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:12:54] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /system/identity/print (24 bytes)
+[2025-07-17 11:12:54] [INFO] Desconectado do MikroTik
+[2025-07-17 11:12:54] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:12:54] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:12:54] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:12:54] [INFO] === TESTE DE EXTRAÇÃO DE DADOS BRUTOS ===
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:12:54] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:12:54] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 11:12:54] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 11:12:54] [INFO] Fim dos dados detectado
+[2025-07-17 11:12:54] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 11:12:54] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:12:54] [INFO] Análise estrutural {"total_bytes":589,"re_count":3,"done_count":1,"name_count":3,"id_count":3,"password_count":2,"profile_count":2}
+[2025-07-17 11:12:54] [INFO] Resultados dos métodos de parsing {"method1":3,"method2":5,"method3":10}
+[2025-07-17 11:12:54] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:12:54] [INFO] Desconectado do MikroTik
+[2025-07-17 11:12:54] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:12:54] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:12:54] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:12:54] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:12:54] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:12:54] [DEBUG] Chunk 1: 589 bytes
+[2025-07-17 11:12:54] [INFO] Fim dos dados detectado
+[2025-07-17 11:12:54] [INFO] Captura concluída: 1 chunks, 589 bytes
+[2025-07-17 11:12:54] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:12:54] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:12:54] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 11:12:54] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 11:12:54] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 11:12:54] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 11:12:54] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 11:12:54] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 11:12:54] [INFO] Usuário 1: default-trial
+[2025-07-17 11:12:54] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:12:54] [INFO] Usuário 3: guest_103
+[2025-07-17 11:12:54] [INFO] Desconectado do MikroTik
+[2025-07-17 11:13:12] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:13:12] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:13:12] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:13:12] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:13:12] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:13:12] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:13:12] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:13:12] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:13:12] [DEBUG] Chunk 1: 330 bytes
+[2025-07-17 11:13:32] [WARNING] Erro na leitura do socket
+[2025-07-17 11:13:32] [INFO] Captura concluída: 1 chunks, 330 bytes
+[2025-07-17 11:13:32] [INFO] Desconectado do MikroTik
+[2025-07-17 11:14:43] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:14:43] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:14:43] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:14:43] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:14:43] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:14:43] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:14:43] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:14:43] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:14:43] [DEBUG] Chunk 1: 329 bytes
+[2025-07-17 11:15:03] [WARNING] Erro na leitura do socket
+[2025-07-17 11:15:03] [INFO] Captura concluída: 1 chunks, 329 bytes
+[2025-07-17 11:15:03] [INFO] Desconectado do MikroTik
+[2025-07-17 11:16:22] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:16:22] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:16:22] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:16:22] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:16:22] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:16:22] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:16:22] [INFO] Desconectando usuário: TEST920-976
+[2025-07-17 11:16:22] [DEBUG] Comando enviado: /ip/hotspot/active/print (44 bytes)
+[2025-07-17 11:16:22] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:16:22] [DEBUG] Chunk 1: 7 bytes
+[2025-07-17 11:16:42] [WARNING] Erro na leitura do socket
+[2025-07-17 11:16:42] [INFO] Captura concluída: 1 chunks, 7 bytes
+[2025-07-17 11:16:42] [INFO] ℹ️ Usuário TEST920-976 não estava ativo
+[2025-07-17 11:16:42] [INFO] === REMOVENDO USUÁRIO COM PARSER DE DADOS BRUTOS: TEST920-976 ===
+[2025-07-17 11:16:42] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:16:42] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 11:16:42] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:16:42] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 11:16:42] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 11:16:42] [INFO] Fim dos dados detectado
+[2025-07-17 11:16:42] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 11:16:42] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 11:16:42] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 11:16:42] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 11:16:42] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 11:16:42] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 11:16:42] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 11:16:42] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 11:16:42] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 11:16:42] [INFO] Usuário 1: default-trial
+[2025-07-17 11:16:42] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 11:16:42] [INFO] Usuário 3: guest_103
+[2025-07-17 11:16:42] [WARNING] Usuário TEST920-976 não encontrado
+[2025-07-17 11:16:42] [INFO] Desconectado do MikroTik
+[2025-07-17 11:16:42] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:16:42] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:16:42] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:16:42] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:16:42] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:16:42] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:16:42] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:16:42] [DEBUG] Chunk 1: 329 bytes
+[2025-07-17 11:17:02] [WARNING] Erro na leitura do socket
+[2025-07-17 11:17:02] [INFO] Captura concluída: 1 chunks, 329 bytes
+[2025-07-17 11:17:02] [INFO] Desconectado do MikroTik
+[2025-07-17 11:17:48] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 11:17:48] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 11:17:48] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 11:17:48] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 11:17:48] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 11:17:48] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 11:17:48] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 11:17:48] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 11:17:48] [DEBUG] Chunk 1: 324 bytes
+[2025-07-17 11:18:08] [WARNING] Erro na leitura do socket
+[2025-07-17 11:18:08] [INFO] Captura concluída: 1 chunks, 324 bytes
+[2025-07-17 11:18:08] [INFO] Desconectado do MikroTik
+[2025-07-17 13:18:53] [INFO] Conectado ao banco de dados
+[2025-07-17 13:18:53] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:18:53] [INFO] MikroTik Parser v3 inicializado
+[2025-07-17 13:18:53] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:18:53] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:19:14] [WARNING] ❌ Tentativa 1 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:19:14] [INFO] Tentativa 2 - usuário: admin
+[2025-07-17 13:19:35] [WARNING] ❌ Tentativa 2 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:19:35] [INFO] Tentativa 3 - usuário: admin
+[2025-07-17 13:19:56] [WARNING] ❌ Tentativa 3 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:19:56] [INFO] Tentativa 4 - usuário: admin
+[2025-07-17 13:20:17] [WARNING] ❌ Tentativa 4 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:20:17] [ERROR] Erro stats: [ERRO] Falha em todas as tentativas de conexao ao MikroTik
+[2025-07-17 13:22:42] [INFO] Conectado ao banco de dados
+[2025-07-17 13:22:42] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:22:42] [INFO] MikroTik Parser v3 inicializado
+[2025-07-17 13:22:42] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:22:42] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:23:03] [WARNING] ❌ Tentativa 1 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:23:03] [INFO] Tentativa 2 - usuário: admin
+[2025-07-17 13:23:24] [WARNING] ❌ Tentativa 2 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:23:24] [INFO] Tentativa 3 - usuário: admin
+[2025-07-17 13:23:45] [WARNING] ❌ Tentativa 3 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:23:45] [INFO] Tentativa 4 - usuário: admin
+[2025-07-17 13:24:06] [WARNING] ❌ Tentativa 4 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:24:06] [ERROR] Erro stats: [ERRO] Falha em todas as tentativas de conexao ao MikroTik
+[2025-07-17 13:43:02] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 13:43:02] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:43:02] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 13:43:02] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 13:43:02] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:43:02] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:43:23] [WARNING] ❌ Tentativa 1 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:43:23] [INFO] Tentativa 2 - usuário: admin
+[2025-07-17 13:43:44] [WARNING] ❌ Tentativa 2 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:43:44] [INFO] Tentativa 3 - usuário: admin
+[2025-07-17 13:44:05] [WARNING] ❌ Tentativa 3 falhou: Conexão TCP falhou: Uma tentativa de conexão falhou porque o componente conectado não respondeu
+corretamente após um período de tempo ou a conexão estabelecida falhou
+porque o host conectado não respondeu
+[2025-07-17 13:44:05] [INFO] Tentativa 4 - usuário: admin
+[2025-07-17 13:44:26] [WARNING] ❌ Tentativa 4 falhou: Conexão TCP falhou: Uma conexão estabelecida foi anulada pelo software no computador host
+[2025-07-17 13:44:26] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 13:44:26] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:44:26] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 13:44:26] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 13:44:26] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:44:26] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:44:26] [WARNING] ❌ Tentativa 1 falhou: Conexão TCP falhou: Uma operação de soquete foi tentada em uma rede inacessível
+[2025-07-17 13:44:26] [INFO] Tentativa 2 - usuário: admin
+[2025-07-17 13:44:26] [WARNING] ❌ Tentativa 2 falhou: Conexão TCP falhou: Uma operação de soquete foi tentada em uma rede inacessível
+[2025-07-17 13:44:26] [INFO] Tentativa 3 - usuário: admin
+[2025-07-17 13:44:26] [WARNING] ❌ Tentativa 3 falhou: Conexão TCP falhou: Uma operação de soquete foi tentada em uma rede inacessível
+[2025-07-17 13:44:26] [INFO] Tentativa 4 - usuário: admin
+[2025-07-17 13:44:26] [WARNING] ❌ Tentativa 4 falhou: Conexão TCP falhou: Uma operação de soquete foi tentada em uma rede inacessível
+[2025-07-17 13:45:34] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 13:45:34] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:45:34] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 13:45:34] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 13:45:34] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:45:34] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:45:34] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 13:45:34] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 13:45:35] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 13:45:35] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:45:35] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 13:45:35] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:45:35] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 13:45:35] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 13:45:35] [INFO] Fim dos dados detectado
+[2025-07-17 13:45:35] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 13:45:35] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 13:45:35] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:45:35] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 13:45:35] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 13:45:35] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 13:45:35] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 13:45:35] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 13:45:35] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 13:45:35] [INFO] Usuário 1: default-trial
+[2025-07-17 13:45:35] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 13:45:35] [INFO] Usuário 3: guest_103
+[2025-07-17 13:45:35] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 13:45:35] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:45:35] [DEBUG] Chunk 1: 7 bytes
+[2025-07-17 13:45:55] [WARNING] Erro na leitura do socket
+[2025-07-17 13:45:55] [INFO] Captura concluída: 1 chunks, 7 bytes
+[2025-07-17 13:46:29] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 13:46:29] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:46:29] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 13:46:29] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 13:46:29] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:46:29] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:46:29] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 13:46:29] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 13:46:29] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 13:46:29] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:46:29] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 13:46:29] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:46:29] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 13:46:29] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 13:46:29] [INFO] Fim dos dados detectado
+[2025-07-17 13:46:29] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 13:46:29] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 13:46:29] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:46:29] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 13:46:29] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 13:46:29] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 13:46:29] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 13:46:29] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 13:46:29] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 13:46:29] [INFO] Usuário 1: default-trial
+[2025-07-17 13:46:29] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 13:46:29] [INFO] Usuário 3: guest_103
+[2025-07-17 13:46:29] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 13:46:29] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:46:29] [DEBUG] Chunk 1: 7 bytes
+[2025-07-17 13:46:49] [WARNING] Erro na leitura do socket
+[2025-07-17 13:46:49] [INFO] Captura concluída: 1 chunks, 7 bytes
+[2025-07-17 13:46:58] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 13:46:58] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 13:46:58] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 13:46:58] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 13:46:58] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 13:46:58] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 13:46:58] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 13:46:58] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 13:46:58] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 13:46:58] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:46:58] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 13:46:58] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:46:58] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 13:46:58] [DEBUG] Chunk 2: 401 bytes
+[2025-07-17 13:46:58] [INFO] Fim dos dados detectado
+[2025-07-17 13:46:58] [INFO] Captura concluída: 2 chunks, 589 bytes
+[2025-07-17 13:46:58] [INFO] Dados brutos capturados: 589 bytes
+[2025-07-17 13:46:58] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 13:46:58] [INFO] Método 1 (padrões): 3 usuários
+[2025-07-17 13:46:58] [INFO] Método 2 (sequência): 5 usuários
+[2025-07-17 13:46:58] [INFO] Método 3 (estrutura): 10 usuários
+[2025-07-17 13:46:58] [INFO] Melhor método: method3 com 10 usuários
+[2025-07-17 13:46:58] [INFO] Usuários finais após remoção de duplicatas: 3
+[2025-07-17 13:46:58] [INFO] Parser de dados brutos encontrou 3 usuários
+[2025-07-17 13:46:58] [INFO] Usuário 1: default-trial
+[2025-07-17 13:46:58] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 13:46:58] [INFO] Usuário 3: guest_103
+[2025-07-17 13:46:58] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 13:46:58] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 13:46:58] [DEBUG] Chunk 1: 7 bytes
+[2025-07-17 13:47:18] [WARNING] Erro na leitura do socket
+[2025-07-17 13:47:18] [INFO] Captura concluída: 1 chunks, 7 bytes
+[2025-07-17 16:32:13] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:13] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:13] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 16:32:14] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:14] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:14] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 16:32:15] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:15] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:15] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 16:32:16] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:16] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:16] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 16:32:17] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:17] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:17] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 16:32:18] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 16:32:18] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 16:32:18] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:07:59] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:07:59] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:07:59] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:08:14] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:08:14] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:08:14] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:08:39] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:08:39] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:08:39] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:08:40] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:08:40] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:08:40] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:08:41] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:08:41] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:08:41] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:08:42] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:08:42] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:08:42] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:09:46] [INFO] Conectado ao banco de dados com sucesso
+[2025-07-17 17:09:46] [INFO] MikroTik Raw Data Parser inicializado {"host":"10.0.1.1","port":8728,"username":"hotel-system"}
+[2025-07-17 17:09:46] [INFO] MikroTik Parser v3 inicializado com sucesso
+[2025-07-17 17:09:46] [INFO] Tabelas do banco verificadas/criadas com sucesso
+[2025-07-17 17:09:46] [INFO] Iniciando conexão com 10.0.1.1:8728
+[2025-07-17 17:09:46] [INFO] Tentativa 1 - usuário: hotel-system
+[2025-07-17 17:09:48] [DEBUG] Comando enviado: /login (8 bytes)
+[2025-07-17 17:09:50] [DEBUG] Comando enviado: /login (46 bytes)
+[2025-07-17 17:09:50] [INFO] ✅ Conectado com sucesso - usuário: hotel-system
+[2025-07-17 17:09:50] [INFO] === INICIANDO LISTAGEM COM PARSER DE DADOS BRUTOS ===
+[2025-07-17 17:09:50] [DEBUG] Comando enviado: /ip/hotspot/user/print (24 bytes)
+[2025-07-17 17:09:50] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 17:09:50] [DEBUG] Chunk 1: 188 bytes
+[2025-07-17 17:09:51] [DEBUG] Chunk 2: 1190 bytes
+[2025-07-17 17:09:51] [INFO] Fim dos dados detectado
+[2025-07-17 17:09:51] [INFO] Captura concluída: 2 chunks, 1378 bytes
+[2025-07-17 17:09:51] [INFO] Dados brutos capturados: 1378 bytes
+[2025-07-17 17:09:51] [INFO] === INICIANDO PARSER DE DADOS BRUTOS ===
+[2025-07-17 17:09:51] [INFO] Método 1 (padrões): 7 usuários
+[2025-07-17 17:09:51] [INFO] Método 2 (sequência): 11 usuários
+[2025-07-17 17:09:51] [INFO] Método 3 (estrutura): 26 usuários
+[2025-07-17 17:09:51] [INFO] Melhor método: method3 com 26 usuários
+[2025-07-17 17:09:51] [INFO] Usuários finais após remoção de duplicatas: 7
+[2025-07-17 17:09:51] [INFO] Parser de dados brutos encontrou 7 usuários
+[2025-07-17 17:09:51] [INFO] Usuário 1: default-trial
+[2025-07-17 17:09:51] [INFO] Usuário 2: admin-recepcao
+[2025-07-17 17:09:51] [INFO] Usuário 3: guest_103
+[2025-07-17 17:09:51] [INFO] Usuário 4: mauro-57
+[2025-07-17 17:09:51] [INFO] Usuário 5: 99-90
+[2025-07-17 17:09:51] [INFO] Usuário 6: 98-25
+[2025-07-17 17:09:51] [INFO] Usuário 7: 15-36
+[2025-07-17 17:09:51] [DEBUG] Comando enviado: /ip/hotspot/active/print (26 bytes)
+[2025-07-17 17:09:51] [INFO] Iniciando captura de dados brutos...
+[2025-07-17 17:09:51] [DEBUG] Chunk 1: 323 bytes
+[2025-07-17 17:09:56] [DEBUG] Socket read retornou false - finalizando captura
+[2025-07-17 17:09:56] [INFO] Captura concluída: 1 chunks, 323 bytes

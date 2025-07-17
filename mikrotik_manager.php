@@ -78,7 +78,7 @@ class MikroTikRawDataParser {
     private $port;
     private $socket;
     private $connected = false;
-    private $timeout = 20;
+    private $timeout = 5;
     private $logger;
     
     public function __construct($host, $username, $password, $port = 8728) {
@@ -236,10 +236,11 @@ class MikroTikRawDataParser {
         $this->logger->info("Iniciando captura de dados brutos...");
         
         while ((time() - $startTime) < $this->timeout) {
-            $chunk = socket_read($this->socket, 8192);
+            // Suprimir warning do socket_read
+            $chunk = @socket_read($this->socket, 8192);
             
             if ($chunk === false) {
-                $this->logger->warning("Erro na leitura do socket");
+                $this->logger->debug("Socket read retornou false - finalizando captura");
                 break;
             }
             
@@ -814,7 +815,8 @@ class MikroTikRawDataParser {
     }
     
     private function readLength() {
-        $byte = socket_read($this->socket, 1);
+        // Suprimir warning do socket_read
+        $byte = @socket_read($this->socket, 1);
         
         if ($byte === false || $byte === '') {
             throw new Exception("Conexão perdida ou timeout na leitura");
@@ -825,15 +827,15 @@ class MikroTikRawDataParser {
         if ($length < 0x80) {
             return $length;
         } elseif ($length < 0xC0) {
-            $byte = socket_read($this->socket, 1);
+            $byte = @socket_read($this->socket, 1);
             if ($byte === false) throw new Exception("Erro na leitura de comprimento");
             return (($length & 0x3F) << 8) + ord($byte);
         } elseif ($length < 0xE0) {
-            $bytes = socket_read($this->socket, 2);
+            $bytes = @socket_read($this->socket, 2);
             if ($bytes === false || strlen($bytes) < 2) throw new Exception("Erro na leitura de comprimento");
             return (($length & 0x1F) << 16) + (ord($bytes[0]) << 8) + ord($bytes[1]);
         } elseif ($length < 0xF0) {
-            $bytes = socket_read($this->socket, 3);
+            $bytes = @socket_read($this->socket, 3);
             if ($bytes === false || strlen($bytes) < 3) throw new Exception("Erro na leitura de comprimento");
             return (($length & 0x0F) << 24) + (ord($bytes[0]) << 16) + (ord($bytes[1]) << 8) + ord($bytes[2]);
         }
@@ -852,7 +854,8 @@ class MikroTikRawDataParser {
         $maxAttempts = 20;
         
         while ($remaining > 0 && $attempts < $maxAttempts) {
-            $chunk = socket_read($this->socket, $remaining);
+            // Suprimir warning do socket_read
+            $chunk = @socket_read($this->socket, $remaining);
             
             if ($chunk === false) {
                 throw new Exception("Erro na leitura de dados");
