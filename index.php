@@ -395,7 +395,7 @@ class HotelSystemV41 {
         }
         
         try {
-            // Tabela principal
+            // Primeiro, criar tabela básica se não existir
             $sql = "CREATE TABLE IF NOT EXISTS hotel_guests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 room_number VARCHAR(10) NOT NULL,
@@ -408,17 +408,17 @@ class HotelSystemV41 {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 status ENUM('active', 'expired', 'disabled') DEFAULT 'active',
-                sync_status ENUM('synced', 'pending', 'failed') DEFAULT 'pending',
-                last_sync TIMESTAMP NULL,
                 INDEX idx_room (room_number),
                 INDEX idx_status (status),
-                INDEX idx_sync (sync_status),
                 INDEX idx_dates (checkin_date, checkout_date),
                 INDEX idx_username (username),
                 INDEX idx_active_room (status, room_number)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             
             $this->db->exec($sql);
+            
+            // Verificar se colunas adicionais existem e criar se necessário
+            $this->addMissingColumns();
             
             // Tabela de logs
             $sql = "CREATE TABLE IF NOT EXISTS access_logs (
@@ -446,6 +446,37 @@ class HotelSystemV41 {
         } catch (Exception $e) {
             $this->logger->error("Erro ao criar tabelas: " . $e->getMessage());
             return false;
+        }
+    }
+    
+    /**
+     * Adiciona colunas que podem estar faltando
+     */
+    private function addMissingColumns() {
+        try {
+            // Verificar se sync_status existe
+            $stmt = $this->db->query("SHOW COLUMNS FROM hotel_guests LIKE 'sync_status'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE hotel_guests ADD COLUMN sync_status ENUM('synced', 'pending', 'failed') DEFAULT 'pending'");
+                $this->logger->info("Coluna sync_status adicionada");
+            }
+            
+            // Verificar se last_sync existe
+            $stmt = $this->db->query("SHOW COLUMNS FROM hotel_guests LIKE 'last_sync'");
+            if ($stmt->rowCount() == 0) {
+                $this->db->exec("ALTER TABLE hotel_guests ADD COLUMN last_sync TIMESTAMP NULL");
+                $this->logger->info("Coluna last_sync adicionada");
+            }
+            
+            // Adicionar índices se não existirem
+            try {
+                $this->db->exec("ALTER TABLE hotel_guests ADD INDEX idx_sync (sync_status)");
+            } catch (Exception $e) {
+                // Índice já existe, ignorar
+            }
+            
+        } catch (Exception $e) {
+            $this->logger->warning("Erro ao adicionar colunas: " . $e->getMessage());
         }
     }
     
@@ -586,16 +617,36 @@ class HotelSystemV41 {
                 throw new Exception("Banco de dados não conectado");
             }
             
+            // Verificar se já existe usuário ativo no quarto
+            $stmt = $this->db->prepare("SELECT username FROM hotel_guests WHERE room_number = ? AND status = 'active' LIMIT 1");
+            $stmt->execute([$roomNumber]);
+            $existingUser = $stmt->fetch();
+            
+            if ($existingUser) {
+                throw new Exception("Já existe usuário ativo para o quarto {$roomNumber}: {$existingUser['username']}");
+            }
+            
             // Gerar credenciais simples
             $username = $this->generateSimpleUsername($roomNumber);
             $password = $this->generateSimplePassword();
             
-            // Inserir no banco
-            $stmt = $this->db->prepare("
-                INSERT INTO hotel_guests 
-                (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status, sync_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'pending')
-            ");
+            // Verificar se as colunas sync_status e last_sync existem
+            $hasSync = $this->checkColumnExists('hotel_guests', 'sync_status');
+            
+            // Inserir no banco com ou sem colunas de sync
+            if ($hasSync) {
+                $stmt = $this->db->prepare("
+                    INSERT INTO hotel_guests 
+                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status, sync_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'pending')
+                ");
+            } else {
+                $stmt = $this->db->prepare("
+                    INSERT INTO hotel_guests 
+                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+                ");
+            }
             
             $result = $stmt->execute([
                 $roomNumber, $guestName, $username, $password, 
@@ -606,6 +657,8 @@ class HotelSystemV41 {
                 throw new Exception("Falha ao salvar no banco");
             }
             
+            $guestId = $this->db->lastInsertId();
+            
             $mikrotikResult = ['success' => false, 'message' => 'MikroTik offline'];
             
             // Tentar criar no MikroTik se conectado
@@ -613,8 +666,18 @@ class HotelSystemV41 {
                 try {
                     $timeLimit = $this->calculateTimeLimit($checkoutDate);
                     $mikrotikResult = $this->createInMikroTik($username, $password, $profileType, $timeLimit);
+                    
+                    // Atualizar status de sync se a coluna existir
+                    if ($hasSync) {
+                        $this->updateSyncStatus($guestId, $mikrotikResult['success'] ? 'synced' : 'failed', $mikrotikResult['message']);
+                    }
+                    
                 } catch (Exception $e) {
                     $mikrotikResult = ['success' => false, 'message' => 'Erro: ' . $e->getMessage()];
+                    
+                    if ($hasSync) {
+                        $this->updateSyncStatus($guestId, 'failed', $mikrotikResult['message']);
+                    }
                 }
             }
             
@@ -630,11 +693,14 @@ class HotelSystemV41 {
                 'mikrotik_success' => $mikrotikResult['success'],
                 'mikrotik_message' => $mikrotikResult['message'],
                 'sync_status' => $mikrotikResult['success'] ? 'synced' : 'pending',
-                'response_time' => $totalTime
+                'response_time' => $totalTime,
+                'guest_id' => $guestId
             ];
             
         } catch (Exception $e) {
             $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
+            $this->logger->error("Erro ao gerar credenciais: " . $e->getMessage());
+            
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -643,12 +709,62 @@ class HotelSystemV41 {
         }
     }
     
-    private function generateSimpleUsername($roomNumber) {
+    /**
+     * Verifica se uma coluna existe em uma tabela
+     */
+    private function checkColumnExists($tableName, $columnName) {
+        try {
+            $stmt = $this->db->prepare("SHOW COLUMNS FROM {$tableName} LIKE ?");
+            $stmt->execute([$columnName]);
+            return $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Atualiza status de sincronização se a coluna existir
+     */
+    private function updateSyncStatus($guestId, $syncStatus, $message = null) {
+        try {
+            if (!$this->checkColumnExists('hotel_guests', 'sync_status')) {
+                return; // Coluna não existe, ignorar
+            }
+            
+            if ($this->checkColumnExists('hotel_guests', 'last_sync')) {
+                $stmt = $this->db->prepare("
+                    UPDATE hotel_guests 
+                    SET sync_status = ?, last_sync = NOW()
+                    WHERE id = ?
+                ");
+            } else {
+                $stmt = $this->db->prepare("
+                    UPDATE hotel_guests 
+                    SET sync_status = ?
+                    WHERE id = ?
+                ");
+            }
+            
+            $stmt->execute([$syncStatus, $guestId]);
+            
+            if ($syncStatus === 'failed' && $message) {
+                $this->logger->warning("Sync failed for guest ID {$guestId}: {$message}");
+            }
+            
+        } catch (Exception $e) {
+            $this->logger->warning("Erro ao atualizar sync status: " . $e->getMessage());
+        }
+    }
+    
+/*     private function generateSimpleUsername($roomNumber) {
         return 'guest_' . preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber) . '_' . rand(100, 999);
+    } */
+    private function generateSimpleUsername($roomNumber) {
+        return '' . preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber) . '-' . rand(10, 99);
     }
     
     private function generateSimplePassword() {
-        return rand(1000, 9999);
+        return rand(10, 99);
     }
     
     private function calculateTimeLimit($checkoutDate) {
@@ -689,13 +805,47 @@ class HotelSystemV41 {
         }
         
         try {
-            $stmt = $this->db->prepare("
-                SELECT * FROM hotel_guests 
-                WHERE status = 'active' 
-                ORDER BY room_number
-            ");
+            // Verificar se as colunas de sync existem
+            $hasSyncStatus = $this->checkColumnExists('hotel_guests', 'sync_status');
+            $hasLastSync = $this->checkColumnExists('hotel_guests', 'last_sync');
+            
+            // Montar query baseada nas colunas disponíveis
+            $selectFields = "
+                id, room_number, guest_name, username, password, profile_type, 
+                checkin_date, checkout_date, created_at, status,
+                CASE 
+                    WHEN checkout_date < CURDATE() THEN 'expired'
+                    WHEN checkout_date = CURDATE() THEN 'expires_today'
+                    ELSE 'active'
+                END as validity_status
+            ";
+            
+            if ($hasSyncStatus) {
+                $selectFields .= ", sync_status";
+            }
+            
+            if ($hasLastSync) {
+                $selectFields .= ", last_sync";
+            }
+            
+            $sql = "SELECT {$selectFields} FROM hotel_guests WHERE status = 'active' ORDER BY room_number";
+            
+            $stmt = $this->db->prepare($sql);
             $stmt->execute();
-            return $stmt->fetchAll();
+            $guests = $stmt->fetchAll();
+            
+            // Adicionar campos padrão se não existirem
+            foreach ($guests as &$guest) {
+                if (!$hasSyncStatus) {
+                    $guest['sync_status'] = 'unknown';
+                }
+                if (!$hasLastSync) {
+                    $guest['last_sync'] = null;
+                }
+            }
+            
+            return $guests;
+            
         } catch (Exception $e) {
             $this->logger->error("Erro ao buscar hóspedes: " . $e->getMessage());
             return [];
