@@ -34,21 +34,21 @@ $systemConfig = [
 $userProfiles = [
     'hotel-guest' => [
         'name' => 'Hóspede Padrão',
-        'rate_limit' => '10M/2M',
+        'rate_limit' => '20M/20M',
         'session_timeout' => '24:00:00',
         'idle_timeout' => '00:30:00',
         'shared_users' => 3
     ],
     'hotel-vip' => [
         'name' => 'Hóspede VIP',
-        'rate_limit' => '50M/10M',
+        'rate_limit' => '100M/100M',
         'session_timeout' => '24:00:00',
         'idle_timeout' => '01:00:00',
         'shared_users' => 5
     ],
     'hotel-staff' => [
         'name' => 'Funcionário',
-        'rate_limit' => '20M/5M',
+        'rate_limit' => '20M/20M',
         'session_timeout' => '08:00:00',
         'idle_timeout' => '00:15:00',
         'shared_users' => 1
