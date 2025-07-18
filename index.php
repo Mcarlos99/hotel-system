@@ -1,6 +1,6 @@
 <?php
 /**
- * index.php - Sistema Hotel v4.0 - Performance Critical Edition
+ * index.php - Sistema Hotel v4.0 - Performance Critical Edition COMPLETO
  * 
  * VERSÃO: 4.0 - Performance Critical Fix
  * DATA: 2025-01-17
@@ -34,8 +34,29 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 
 // Incluir arquivos necessários
-require_once 'config.php';
-require_once 'mikrotik_manager.php'; // Versão v4.0 otimizada
+if (file_exists('config.php')) {
+    require_once 'config.php'; // Versão v4.0 otimizada
+} else {
+    die("Erro: Arquivo config.php não encontrado!");
+}
+
+// Verificar se o arquivo mikrotik_manager.php existe antes de incluir
+if (file_exists('mikrotik_manager.php')) {
+    require_once 'mikrotik_manager.php'; // Versão v4.0 otimizada
+} else {
+    die("Erro: Arquivo mikrotik_manager.php não encontrado!");
+}
+
+// Verificar se as classes necessárias foram carregadas
+if (!class_exists('HotelLogger')) {
+    error_log("AVISO: Classe HotelLogger não encontrada, usando logger simples");
+}
+
+if (!class_exists('MikroTikHotspotManagerFixed')) {
+    die("Erro: Classe MikroTikHotspotManagerFixed não encontrada no mikrotik_manager.php!");
+}
+
+// Logger já definido no mikrotik_manager.php - usar a classe existente
 
 /**
  * Classe do Sistema Hotel v4.0 - Ultra-Otimizada
@@ -46,15 +67,17 @@ class HotelSystemV4 {
     protected $logger;
     protected $systemConfig;
     protected $userProfiles;
+    protected $mikrotikConfig; // Adicionar para acesso aos dados do MikroTik
     protected $startTime;
     
     public function __construct($mikrotikConfig, $dbConfig, $systemConfig, $userProfiles) {
         $this->startTime = microtime(true);
         $this->systemConfig = $systemConfig;
         $this->userProfiles = $userProfiles;
+        $this->mikrotikConfig = $mikrotikConfig; // Armazenar configuração do MikroTik
         
-        // Logger otimizado
-        $this->logger = new HotelLoggerFast();
+        // Logger otimizado (usar a classe do mikrotik_manager.php)
+        $this->logger = new HotelLogger();
         
         // Conectar ao banco com timeout otimizado
         try {
@@ -76,16 +99,22 @@ class HotelSystemV4 {
             throw new Exception("Erro na conexao com banco: " . $e->getMessage());
         }
         
-        // Conectar ao MikroTik v4.0
+        // Conectar ao MikroTik v4.0 (com verificação de conectividade)
         try {
-            $this->mikrotik = new MikroTikHotspotManagerFixed(
-                $mikrotikConfig['host'],
-                $mikrotikConfig['username'],
-                $mikrotikConfig['password'],
-                $mikrotikConfig['port'] ?? 8728
-            );
-            
-            $this->logger->info("MikroTik Manager v4.0 inicializado");
+            // Primeiro verificar se o host é acessível
+            if ($this->isHostReachable($mikrotikConfig['host'], $mikrotikConfig['port'] ?? 8728)) {
+                $this->mikrotik = new MikroTikHotspotManagerFixed(
+                    $mikrotikConfig['host'],
+                    $mikrotikConfig['username'],
+                    $mikrotikConfig['password'],
+                    $mikrotikConfig['port'] ?? 8728
+                );
+                
+                $this->logger->info("MikroTik Manager v4.0 inicializado");
+            } else {
+                $this->logger->warning("MikroTik nao acessivel em {$mikrotikConfig['host']}:{$mikrotikConfig['port']}");
+                $this->mikrotik = null;
+            }
             
         } catch (Exception $e) {
             $this->logger->warning("MikroTik v4.0 nao conectado: " . $e->getMessage());
@@ -98,6 +127,31 @@ class HotelSystemV4 {
         // Log de inicialização
         $initTime = round((microtime(true) - $this->startTime) * 1000, 2);
         $this->logger->info("Sistema Hotel v4.0 inicializado em {$initTime}ms");
+    }
+    
+    /**
+     * v4.0: Verificar se o host é acessível antes de tentar conectar
+     */
+    private function isHostReachable($host, $port, $timeout = 2) {
+        try {
+            // Verificar se é um IP válido ou hostname
+            if (!filter_var($host, FILTER_VALIDATE_IP) && !gethostbyname($host)) {
+                return false;
+            }
+            
+            // Tentar conexão rápida com timeout curto
+            $socket = @fsockopen($host, $port, $errno, $errstr, $timeout);
+            
+            if ($socket) {
+                fclose($socket);
+                return true;
+            }
+            
+            return false;
+            
+        } catch (Exception $e) {
+            return false;
+        }
     }
     
     /**
@@ -258,24 +312,45 @@ class HotelSystemV4 {
         if (!$this->mikrotik) {
             return [
                 'connected' => false,
-                'error' => 'MikroTik nao configurado'
+                'error' => 'MikroTik nao configurado ou inacessivel',
+                'status' => 'offline',
+                'response_time' => 0,
+                'user_count' => 0
             ];
         }
         
         try {
+            // Verificar conectividade antes de tentar o health check
+            $configHost = $this->mikrotikConfig['host'] ?? '10.0.1.1';
+            $configPort = $this->mikrotikConfig['port'] ?? 8728;
+            
+            if (!$this->isHostReachable($configHost, $configPort, 1)) {
+                return [
+                    'connected' => false,
+                    'error' => "Host {$configHost}:{$configPort} nao acessivel",
+                    'status' => 'unreachable',
+                    'response_time' => 0,
+                    'user_count' => 0
+                ];
+            }
+            
             $health = $this->mikrotik->healthCheck();
             
             return [
-                'connected' => $health['connection'],
-                'response_time' => $health['response_time'],
-                'user_count' => $health['user_count'],
-                'status' => $health['status'],
+                'connected' => $health['connection'] ?? false,
+                'response_time' => $health['response_time'] ?? 0,
+                'user_count' => $health['user_count'] ?? 0,
+                'status' => ($health['connection'] ?? false) ? 'online' : 'offline',
                 'error' => $health['error'] ?? null
             ];
+            
         } catch (Exception $e) {
             return [
                 'connected' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'status' => 'error',
+                'response_time' => 0,
+                'user_count' => 0
             ];
         }
     }
@@ -363,10 +438,8 @@ class HotelSystemV4 {
             return [];
         }
     }
-}
-
-/* 2 */
-/**
+    
+    /**
      * v4.0: Geração de credenciais ultra-otimizada
      */
     public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
@@ -482,7 +555,7 @@ class HotelSystemV4 {
         $mikrotikStart = microtime(true);
         
         try {
-            $this->mikrotik->connect('create');
+            $this->mikrotik->connect();
             $result = $this->mikrotik->createHotspotUser($username, $password, $profileType, $timeLimit);
             $this->mikrotik->disconnect();
             
@@ -619,7 +692,7 @@ class HotelSystemV4 {
         $mikrotikStart = microtime(true);
         
         try {
-            $this->mikrotik->connect('remove');
+            $this->mikrotik->connect();
             $result = $this->mikrotik->removeHotspotUser($username);
             $this->mikrotik->disconnect();
             
@@ -872,8 +945,6 @@ class HotelSystemV4 {
         }
     }
     
-    /* parte 3 */
-
     /**
      * v4.0: Obter estatísticas otimizadas do sistema
      */
@@ -918,6 +989,7 @@ class HotelSystemV4 {
         $stats['mikrotik_total'] = 0;
         $stats['online_users'] = 0;
         $stats['mikrotik_status'] = 'disconnected';
+        $stats['mikrotik_response_time'] = 0;
         
         if ($this->mikrotik) {
             try {
@@ -928,6 +1000,7 @@ class HotelSystemV4 {
                 $stats['mikrotik_status'] = 'connected';
             } catch (Exception $e) {
                 $stats['mikrotik_error'] = $e->getMessage();
+                $this->logger->warning("Erro ao obter stats MikroTik: " . $e->getMessage());
             }
         }
         
@@ -1015,7 +1088,7 @@ class HotelSystemV4 {
             $syncResult['bd_users'] = count($bdUsers);
             
             // Obter usuários do MikroTik
-            $this->mikrotik->connect('list');
+            $this->mikrotik->connect();
             $mikrotikUsers = $this->mikrotik->listHotspotUsers();
             $this->mikrotik->disconnect();
             
@@ -1289,22 +1362,29 @@ class HotelSystemV4 {
         $performanceSummary = $this->getPerformanceSummary();
         if (!empty($performanceSummary) && !isset($performanceSummary['error'])) {
             $avgTimes = array_column($performanceSummary, 'avg_time');
-            $overallAvg = array_sum($avgTimes) / count($avgTimes);
-            
-            if ($overallAvg < 2000) {
-                $validation['tests']['performance'] = [
-                    'status' => 'pass',
-                    'message' => "Performance excelente ({$overallAvg}ms media)"
-                ];
-            } elseif ($overallAvg < 5000) {
-                $validation['tests']['performance'] = [
-                    'status' => 'warning',
-                    'message' => "Performance boa ({$overallAvg}ms media)"
-                ];
+            if (!empty($avgTimes)) {
+                $overallAvg = array_sum($avgTimes) / count($avgTimes);
+                
+                if ($overallAvg < 2000) {
+                    $validation['tests']['performance'] = [
+                        'status' => 'pass',
+                        'message' => "Performance excelente ({$overallAvg}ms media)"
+                    ];
+                } elseif ($overallAvg < 5000) {
+                    $validation['tests']['performance'] = [
+                        'status' => 'warning',
+                        'message' => "Performance boa ({$overallAvg}ms media)"
+                    ];
+                } else {
+                    $validation['tests']['performance'] = [
+                        'status' => 'fail',
+                        'message' => "Performance ruim ({$overallAvg}ms media)"
+                    ];
+                }
             } else {
                 $validation['tests']['performance'] = [
-                    'status' => 'fail',
-                    'message' => "Performance ruim ({$overallAvg}ms media)"
+                    'status' => 'warning',
+                    'message' => 'Sem dados de performance válidos'
                 ];
             }
         } else {
@@ -1368,10 +1448,6 @@ class HotelSystemV4 {
         
         return $validation;
     }
-}
-
-/* parte 4 */
-
 }
 
 // Inicializar o sistema v4.0
@@ -1848,170 +1924,7 @@ header('X-System-Status: ' . $systemStatus);
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="version-badge">v4.0 Performance</div>
-            <h1>🏨 <?php echo htmlspecialchars($systemConfig['hotel_name']); ?></h1>
-            <p>Sistema de Gerenciamento de Internet - Performance Critical Edition</p>
-            <div class="performance-badge">
-                ⚡ Carregado em <?php echo $totalLoadTime; ?>ms
-            </div>
-            <span class="system-status status-<?php echo $systemStatus; ?>">
-                <?php 
-                switch($systemStatus) {
-                    case 'excellent': echo '🎉 Sistema Excelente'; break;
-                    case 'good': echo '✅ Sistema Funcionando'; break;
-                    case 'moderate': echo '⚠️ Sistema Moderado'; break;
-                    case 'database_only': echo '⚠️ Só Banco Conectado'; break;
-                    case 'critical': echo '❌ Sistema Crítico'; break;
-                    default: echo '❓ Status Desconhecido'; break;
-                }
-                ?>
-            </span>
-        </div>
-        <!-- parte 5 -->
-
-        <div class="validation-score">
-                    <div class="score-circle score-<?php echo $validationResults['overall_status']; ?>">
-                        <span class="score-number"><?php echo $validationResults['score']; ?>%</span>
-                        <span class="score-label"><?php echo strtoupper($validationResults['overall_status']); ?></span>
-                    </div>
-                </div>
-                
-                <div class="validation-tests">
-                    <?php foreach ($validationResults['tests'] as $testName => $test): ?>
-                    <div class="test-result test-<?php echo $test['status']; ?>">
-                        <span class="test-icon">
-                            <?php 
-                            echo $test['status'] === 'pass' ? '✅' : 
-                                ($test['status'] === 'warning' ? '⚠️' : '❌'); 
-                            ?>
-                        </span>
-                        <span class="test-name"><?php echo ucfirst($testName); ?>:</span>
-                        <span class="test-message"><?php echo htmlspecialchars($test['message']); ?></span>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                
-                <?php if (!empty($validationResults['recommendations'])): ?>
-                <div class="validation-recommendations">
-                    <h4>💡 Recomendações:</h4>
-                    <ul>
-                        <?php foreach ($validationResults['recommendations'] as $recommendation): ?>
-                        <li><?php echo htmlspecialchars($recommendation); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Performance Metrics (se solicitado) -->
-            <?php if ($performanceMetrics): ?>
-            <div class="performance-section animate-in">
-                <h3>📊 Métricas de Performance v4.0</h3>
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <h4>🏥 Saúde do Sistema</h4>
-                        <div class="metric-details">
-                            <div class="metric-row">
-                                <span>Tempo Total:</span>
-                                <span><?php echo $performanceMetrics['system_health']['total_time']; ?>ms</span>
-                            </div>
-                            <div class="metric-row">
-                                <span>Status BD:</span>
-                                <span><?php echo $performanceMetrics['system_health']['database']['connected'] ? '🟢 Conectado' : '🔴 Desconectado'; ?></span>
-                            </div>
-                            <div class="metric-row">
-                                <span>Status MikroTik:</span>
-                                <span><?php echo $performanceMetrics['system_health']['mikrotik']['connected'] ? '🟢 Conectado' : '🔴 Desconectado'; ?></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="metric-card">
-                        <h4>📈 Performance 24h</h4>
-                        <div class="metric-details">
-                            <?php if (!empty($performanceMetrics['performance_summary'])): ?>
-                                <?php foreach ($performanceMetrics['performance_summary'] as $operation => $data): ?>
-                                <div class="metric-row">
-                                    <span><?php echo ucfirst($operation); ?>:</span>
-                                    <span><?php echo $data['avg_time']; ?>ms (<?php echo $data['success_rate']; ?>%)</span>
-                                </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <div class="metric-row">
-                                    <span>Sem dados suficientes</span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    
-                    <div class="metric-card">
-                        <h4>✅ Validação</h4>
-                        <div class="metric-details">
-                            <div class="metric-row">
-                                <span>Score Geral:</span>
-                                <span><?php echo $performanceMetrics['validation']['score']; ?>%</span>
-                            </div>
-                            <div class="metric-row">
-                                <span>Status:</span>
-                                <span><?php echo strtoupper($performanceMetrics['validation']['overall_status']); ?></span>
-                            </div>
-                            <div class="metric-row">
-                                <span>Tempo:</span>
-                                <span><?php echo $performanceMetrics['validation']['response_time']; ?>ms</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-        </div>
         
-        <!-- Footer v4.0 -->
-        <div class="footer">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h4>Sistema Hotel v4.0</h4>
-                    <p>Performance Critical Edition</p>
-                    <p>Carregado em <?php echo $totalLoadTime; ?>ms</p>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Status do Sistema</h4>
-                    <p>BD: <?php echo $systemStats['active_guests']; ?> ativos</p>
-                    <p>MikroTik: <?php echo $systemStats['mikrotik_total']; ?> usuários</p>
-                    <p>Sync: <?php echo $systemStats['sync_rate']; ?>%</p>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Links Úteis</h4>
-                    <a href="test_raw_parser_final.php">Testar Parser</a>
-                    <a href="test_performance.php">Performance</a>
-                    <a href="#" onclick="exportSystemData()">Exportar Dados</a>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Suporte</h4>
-                    <p>Versão: 4.0.0</p>
-                    <p>Build: <?php echo date('Y.m.d'); ?></p>
-                    <p>PHP: <?php echo PHP_VERSION; ?></p>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2025 Sistema Hotel v4.0 - Performance Critical Edition</p>
-                <p>Tempo de carregamento total: <?php echo $totalLoadTime; ?>ms | Status: <?php echo $systemStatus; ?></p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- CSS Adicional v4.0 -->
-    <style>
         /* CSS Principal para Interface v4.0 */
         .main-content {
             padding: 30px;
@@ -2291,6 +2204,16 @@ header('X-System-Status: ' . $systemStatus);
             display: block;
         }
         
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         /* Exibição de Credenciais v4.0 */
         .credentials-display {
             background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
@@ -2313,6 +2236,11 @@ header('X-System-Status: ' . $systemStatus);
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
             animation: shine 3s infinite;
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
         }
         
         .credentials-header {
@@ -2478,6 +2406,11 @@ header('X-System-Status: ' . $systemStatus);
         
         .sync-icon {
             animation: rotate 2s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         .guests-container {
@@ -2796,7 +2729,227 @@ header('X-System-Status: ' . $systemStatus);
         .score-number {
             font-size: 2.5em;
             font-weight: bold;
-            margin-bottom: 5px;<!-- Estatísticas do Sistema v4.0 -->
+            margin-bottom: 5px;
+        }
+        
+        .score-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .validation-tests {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .test-result {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .test-pass { border-left: 3px solid #27ae60; }
+        .test-warning { border-left: 3px solid #f39c12; }
+        .test-fail { border-left: 3px solid #e74c3c; }
+        
+        .test-icon {
+            font-size: 1.2em;
+        }
+        
+        .test-name {
+            font-weight: 600;
+            min-width: 100px;
+        }
+        
+        .test-message {
+            flex: 1;
+            opacity: 0.9;
+        }
+        
+        .validation-recommendations {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .validation-recommendations h4 {
+            margin-bottom: 15px;
+        }
+        
+        .validation-recommendations ul {
+            margin-left: 20px;
+        }
+        
+        .validation-recommendations li {
+            margin-bottom: 8px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .metric-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .metric-card h4 {
+            margin-bottom: 15px;
+            color: white;
+        }
+        
+        .metric-details {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .metric-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        /* Footer v4.0 */
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .footer-section h4 {
+            margin-bottom: 15px;
+            color: #3498db;
+        }
+        
+        .footer-section p {
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+        
+        .footer-section a {
+            color: #3498db;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 5px;
+            transition: color 0.3s;
+        }
+        
+        .footer-section a:hover {
+            color: #2ecc71;
+        }
+        
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 20px;
+            opacity: 0.7;
+        }
+        
+        /* Animações melhoradas */
+        .animate-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .slide-in {
+            animation: slideInLeft 0.5s ease-out;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Responsivo avançado */
+        @media (max-width: 1200px) {
+            .guests-header, .guest-row {
+                grid-template-columns: 80px 1fr 180px 100px 100px 80px 130px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .guests-header, .guest-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .guest-row {
+                padding: 15px;
+            }
+            
+            .credential-pair {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="version-badge">v4.0 Performance</div>
+            <h1>🏨 <?php echo htmlspecialchars($systemConfig['hotel_name']); ?></h1>
+            <p>Sistema de Gerenciamento de Internet - Performance Critical Edition</p>
+            <div class="performance-badge">
+                ⚡ Carregado em <?php echo $totalLoadTime; ?>ms
+            </div>
+            <span class="system-status status-<?php echo $systemStatus; ?>">
+                <?php 
+                switch($systemStatus) {
+                    case 'excellent': echo '🎉 Sistema Excelente'; break;
+                    case 'good': echo '✅ Sistema Funcionando'; break;
+                    case 'moderate': echo '⚠️ Sistema Moderado'; break;
+                    case 'database_only': echo '⚠️ Só Banco Conectado'; break;
+                    case 'critical': echo '❌ Sistema Crítico'; break;
+                    default: echo '❓ Status Desconhecido'; break;
+                }
+                ?>
+            </span>
+        </div>
+        
+        <!-- Estatísticas do Sistema v4.0 -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="performance-indicator indicator-<?php 
@@ -3356,4 +3509,652 @@ header('X-System-Status: ' . $systemStatus);
             <div class="validation-section animate-in">
                 <h3>✅ Resultados da Validação v4.0</h3>
                 <div class="validation-score">
-                    <div class="score-circle score-<?php echo $validationResults['overall_status']; 
+                    <div class="score-circle score-<?php echo $validationResults['overall_status']; ?>">
+                        <span class="score-number"><?php echo $validationResults['score']; ?>%</span>
+                        <span class="score-label"><?php echo strtoupper($validationResults['overall_status']); ?></span>
+                    </div>
+                </div>
+                
+                <div class="validation-tests">
+                    <?php foreach ($validationResults['tests'] as $testName => $test): ?>
+                    <div class="test-result test-<?php echo $test['status']; ?>">
+                        <span class="test-icon">
+                            <?php 
+                            echo $test['status'] === 'pass' ? '✅' : 
+                                ($test['status'] === 'warning' ? '⚠️' : '❌'); 
+                            ?>
+                        </span>
+                        <span class="test-name"><?php echo ucfirst($testName); ?>:</span>
+                        <span class="test-message"><?php echo htmlspecialchars($test['message']); ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <?php if (!empty($validationResults['recommendations'])): ?>
+                <div class="validation-recommendations">
+                    <h4>💡 Recomendações:</h4>
+                    <ul>
+                        <?php foreach ($validationResults['recommendations'] as $recommendation): ?>
+                        <li><?php echo htmlspecialchars($recommendation); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Performance Metrics (se solicitado) -->
+            <?php if ($performanceMetrics): ?>
+            <div class="performance-section animate-in">
+                <h3>📊 Métricas de Performance v4.0</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <h4>🏥 Saúde do Sistema</h4>
+                        <div class="metric-details">
+                            <div class="metric-row">
+                                <span>Tempo Total:</span>
+                                <span><?php echo $performanceMetrics['system_health']['total_time']; ?>ms</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Status BD:</span>
+                                <span><?php echo $performanceMetrics['system_health']['database']['connected'] ? '🟢 Conectado' : '🔴 Desconectado'; ?></span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Status MikroTik:</span>
+                                <span><?php echo $performanceMetrics['system_health']['mikrotik']['connected'] ? '🟢 Conectado' : '🔴 Desconectado'; ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <h4>📈 Performance 24h</h4>
+                        <div class="metric-details">
+                            <?php if (!empty($performanceMetrics['performance_summary'])): ?>
+                                <?php foreach ($performanceMetrics['performance_summary'] as $operation => $data): ?>
+                                <div class="metric-row">
+                                    <span><?php echo ucfirst($operation); ?>:</span>
+                                    <span><?php echo $data['avg_time']; ?>ms (<?php echo $data['success_rate']; ?>%)</span>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="metric-row">
+                                    <span>Sem dados suficientes</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <h4>✅ Validação</h4>
+                        <div class="metric-details">
+                            <div class="metric-row">
+                                <span>Score Geral:</span>
+                                <span><?php echo $performanceMetrics['validation']['score']; ?>%</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Status:</span>
+                                <span><?php echo strtoupper($performanceMetrics['validation']['overall_status']); ?></span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Tempo:</span>
+                                <span><?php echo $performanceMetrics['validation']['response_time']; ?>ms</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Footer v4.0 -->
+        <div class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Sistema Hotel v4.0</h4>
+                    <p>Performance Critical Edition</p>
+                    <p>Carregado em <?php echo $totalLoadTime; ?>ms</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Status do Sistema</h4>
+                    <p>BD: <?php echo $systemStats['active_guests']; ?> ativos</p>
+                    <p>MikroTik: <?php echo $systemStats['mikrotik_total']; ?> usuários</p>
+                    <p>Sync: <?php echo $systemStats['sync_rate']; ?>%</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Links Úteis</h4>
+                    <a href="test_raw_parser_final.php">Testar Parser</a>
+                    <a href="test_performance.php">Performance</a>
+                    <a href="#" onclick="exportSystemData()">Exportar Dados</a>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Suporte</h4>
+                    <p>Versão: 4.0.0</p>
+                    <p>Build: <?php echo date('Y.m.d'); ?></p>
+                    <p>PHP: <?php echo PHP_VERSION; ?></p>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2025 Sistema Hotel v4.0 - Performance Critical Edition</p>
+                <p>Tempo de carregamento total: <?php echo $totalLoadTime; ?>ms | Status: <?php echo $systemStatus; ?></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript v4.0 -->
+    <script>
+        // Sistema de Performance e Feedback v4.0
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Sistema Hotel v4.0 carregado em <?php echo $totalLoadTime; ?>ms');
+            
+            // Auto-definir data de check-in para hoje
+            const checkinInput = document.getElementById('checkin_date');
+            const checkoutInput = document.getElementById('checkout_date');
+            
+            if (checkinInput && !checkinInput.value) {
+                checkinInput.value = new Date().toISOString().split('T')[0];
+            }
+            
+            if (checkoutInput && !checkoutInput.value) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                checkoutInput.value = tomorrow.toISOString().split('T')[0];
+            }
+            
+            // Validação em tempo real
+            setupRealTimeValidation();
+            
+            // Setup de botões com loading
+            setupButtonLoading();
+            
+            // Auto-refresh para estatísticas (opcional)
+            setupAutoRefresh();
+        });
+        
+        // Validação em tempo real v4.0
+        function setupRealTimeValidation() {
+            const roomInput = document.getElementById('room_number');
+            const nameInput = document.getElementById('guest_name');
+            const checkinInput = document.getElementById('checkin_date');
+            const checkoutInput = document.getElementById('checkout_date');
+            
+            if (roomInput) {
+                roomInput.addEventListener('blur', function() {
+                    const feedback = document.getElementById('room-feedback');
+                    if (this.value.trim()) {
+                        feedback.textContent = '✅ Número do quarto válido';
+                        feedback.className = 'input-feedback success';
+                    } else {
+                        feedback.textContent = '❌ Número do quarto é obrigatório';
+                        feedback.className = 'input-feedback error';
+                    }
+                });
+            }
+            
+            if (nameInput) {
+                nameInput.addEventListener('blur', function() {
+                    const feedback = document.getElementById('name-feedback');
+                    if (this.value.trim().length >= 3) {
+                        feedback.textContent = '✅ Nome do hóspede válido';
+                        feedback.className = 'input-feedback success';
+                    } else {
+                        feedback.textContent = '❌ Nome deve ter pelo menos 3 caracteres';
+                        feedback.className = 'input-feedback error';
+                    }
+                });
+            }
+            
+            if (checkinInput && checkoutInput) {
+                function validateDates() {
+                    const checkinFeedback = document.getElementById('checkin-feedback');
+                    const checkoutFeedback = document.getElementById('checkout-feedback');
+                    
+                    if (checkinInput.value && checkoutInput.value) {
+                        const checkin = new Date(checkinInput.value);
+                        const checkout = new Date(checkoutInput.value);
+                        
+                        if (checkout > checkin) {
+                            const days = Math.ceil((checkout - checkin) / (1000 * 60 * 60 * 24));
+                            checkinFeedback.textContent = '✅ Data de check-in válida';
+                            checkinFeedback.className = 'input-feedback success';
+                            checkoutFeedback.textContent = `✅ Estadia de ${days} dia(s)`;
+                            checkoutFeedback.className = 'input-feedback success';
+                        } else {
+                            checkoutFeedback.textContent = '❌ Check-out deve ser após check-in';
+                            checkoutFeedback.className = 'input-feedback error';
+                        }
+                    }
+                }
+                
+                checkinInput.addEventListener('change', validateDates);
+                checkoutInput.addEventListener('change', validateDates);
+            }
+        }
+        
+        // Setup de loading nos botões
+        function setupButtonLoading() {
+            const buttons = document.querySelectorAll('button[type="submit"]');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    if (this.form && this.form.checkValidity()) {
+                        this.classList.add('loading');
+                        
+                        // Restaurar após timeout
+                        setTimeout(() => {
+                            this.classList.remove('loading');
+                        }, 30000);
+                    }
+                });
+            });
+        }
+        
+        // Funções utilitárias v4.0
+        function copyToClipboard(text, element) {
+            navigator.clipboard.writeText(text).then(function() {
+                // Feedback visual
+                const original = element.style.background;
+                element.style.background = '#27ae60';
+                element.style.color = 'white';
+                
+                setTimeout(() => {
+                    element.style.background = original;
+                    element.style.color = '';
+                }, 1000);
+                
+                console.log('✅ Copiado: ' + text);
+            }).catch(function(err) {
+                console.error('❌ Erro ao copiar: ', err);
+            });
+        }
+        
+        function closeAlert(alertId) {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.style.animation = 'slideUp 0.3s ease-out';
+                setTimeout(() => {
+                    alert.remove();
+                }, 300);
+            }
+        }
+        
+        function resetForm() {
+            const form = document.getElementById('generate-form');
+            if (form) {
+                form.reset();
+                
+                // Limpar feedbacks
+                document.querySelectorAll('.input-feedback').forEach(feedback => {
+                    feedback.textContent = '';
+                    feedback.className = 'input-feedback';
+                });
+                
+                // Redefinir datas
+                const checkinInput = document.getElementById('checkin_date');
+                const checkoutInput = document.getElementById('checkout_date');
+                
+                if (checkinInput) {
+                    checkinInput.value = new Date().toISOString().split('T')[0];
+                }
+                
+                if (checkoutInput) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    checkoutInput.value = tomorrow.toISOString().split('T')[0];
+                }
+            }
+        }
+        
+        function printCredentials() {
+            const credentials = document.getElementById('credentials-result');
+            if (credentials) {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Credenciais de Acesso</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 40px; }
+                                .header { text-align: center; margin-bottom: 30px; }
+                                .credentials { background: #f8f9fa; padding: 30px; border-radius: 10px; margin: 20px 0; }
+                                .credential-item { margin: 15px 0; padding: 15px; background: white; border-radius: 5px; }
+                                .label { font-weight: bold; color: #666; }
+                                .value { font-size: 1.5em; font-family: monospace; margin: 10px 0; }
+                                .footer { margin-top: 30px; text-align: center; font-size: 0.9em; color: #666; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <h1><?php echo htmlspecialchars($systemConfig['hotel_name']); ?></h1>
+                                <h2>Credenciais de Acesso à Internet</h2>
+                            </div>
+                            <div class="credentials">
+                                ${credentials.innerHTML}
+                            </div>
+                            <div class="footer">
+                                <p>Gerado em: ${new Date().toLocaleString()}</p>
+                                <p>Sistema Hotel v4.0 - Performance Critical Edition</p>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            }
+        }
+        
+        function closeCredentials() {
+            const credentials = document.getElementById('credentials-result');
+            if (credentials) {
+                credentials.style.animation = 'slideUp 0.5s ease-out';
+                setTimeout(() => {
+                    credentials.remove();
+                }, 500);
+            }
+        }
+        
+        function refreshGuestList() {
+            location.reload();
+        }
+        
+        function forceSync() {
+            if (confirm('🔄 Forçar sincronização completa entre BD e MikroTik?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = '<input type="hidden" name="force_sync" value="1">';
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        
+        function confirmRemoval(roomNumber, guestName, username) {
+            return confirm(`🗑️ Confirma a remoção do acesso?\n\nQuarto: ${roomNumber}\nHóspede: ${guestName}\nUsuário: ${username}\n\nEsta ação não pode ser desfeita.`);
+        }
+        
+        function viewGuestDetails(username) {
+            alert(`👁️ Detalhes do hóspede: ${username}\n\nFuncionalidade em desenvolvimento.`);
+        }
+        
+        function retrySync(guestId) {
+            if (confirm('🔄 Tentar sincronizar novamente este hóspede?')) {
+                // Implementar retry de sincronização
+                console.log('Retry sync for guest ID:', guestId);
+            }
+        }
+        
+        function toggleViewMode() {
+            const container = document.getElementById('guests-container');
+            if (container) {
+                container.classList.toggle('compact-view');
+            }
+        }
+        
+        function exportData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                system_version: '4.0',
+                load_time: '<?php echo $totalLoadTime; ?>',
+                system_status: '<?php echo $systemStatus; ?>',
+                stats: <?php echo json_encode($systemStats); ?>,
+                guests: <?php echo json_encode($activeGuests); ?>
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hotel_system_export_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function exportSystemData() {
+            exportData();
+        }
+        
+        // Debug tabs
+        function showDebugTab(tabName) {
+            // Esconder todos os painéis
+            document.querySelectorAll('.debug-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            
+            // Remover active de todas as tabs
+            document.querySelectorAll('.debug-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar painel selecionado
+            const panel = document.getElementById('debug-' + tabName);
+            if (panel) {
+                panel.classList.add('active');
+            }
+            
+            // Ativar tab selecionada
+            event.target.classList.add('active');
+        }
+        
+        // Auto-refresh opcional (desabilitado por padrão para economia de recursos)
+        function setupAutoRefresh() {
+            // Comentado para evitar refresh automático
+            // setInterval(() => {
+            //     if (document.visibilityState === 'visible') {
+            //         refreshGuestList();
+            //     }
+            // }, 300000); // 5 minutos
+        }
+        
+        // Monitoramento de performance
+        function trackPerformance() {
+            const loadTime = performance.now();
+            console.log(`⚡ Página carregada em ${loadTime.toFixed(2)}ms`);
+            
+            // Enviar métricas para o servidor (opcional)
+            if (loadTime > 3000) {
+                console.warn('⚠️ Carregamento lento detectado:', loadTime);
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+N para novo acesso
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                document.getElementById('room_number').focus();
+            }
+            
+            // Ctrl+R para refresh
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                refreshGuestList();
+            }
+            
+            // Esc para fechar alertas
+            if (e.key === 'Escape') {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    if (alert.id) {
+                        closeAlert(alert.id);
+                    }
+                });
+            }
+        });
+        
+        // Notificações de sistema
+        function showSystemNotification(message, type = 'info') {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Sistema Hotel v4.0', {
+                    body: message,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🏨</text></svg>'
+                });
+            }
+        }
+        
+        // Solicitar permissão para notificações
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        
+        // Detectar mudanças de conectividade
+        window.addEventListener('online', function() {
+            showSystemNotification('Conexão com internet restaurada');
+        });
+        
+        window.addEventListener('offline', function() {
+            showSystemNotification('Conexão com internet perdida', 'warning');
+        });
+        
+        // Animações customizadas
+        function animateStats() {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            statNumbers.forEach(stat => {
+                const value = parseInt(stat.textContent);
+                let current = 0;
+                const increment = value / 30; // 30 frames de animação
+                
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= value) {
+                        stat.textContent = value;
+                        clearInterval(timer);
+                    } else {
+                        stat.textContent = Math.floor(current);
+                    }
+                }, 50);
+            });
+        }
+        
+        // Executar animações após carregamento
+        setTimeout(animateStats, 500);
+        
+        // Monitorar mudanças de foco para pausar/retomar operações
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                console.log('🔄 Página ativa - retomando operações');
+            } else {
+                console.log('⏸️ Página inativa - pausando operações');
+            }
+        });
+        
+        // Detectar dispositivos móveis
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        if (isMobile()) {
+            document.body.classList.add('mobile-device');
+            console.log('📱 Dispositivo móvel detectado');
+        }
+        
+        // Otimizações para performance
+        function optimizePerformance() {
+            // Lazy loading para imagens (se houver)
+            const images = document.querySelectorAll('img[data-src]');
+            images.forEach(img => {
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+            });
+            
+            // Otimizar animações baseado na performance
+            const isSlowDevice = navigator.hardwareConcurrency < 4;
+            if (isSlowDevice) {
+                document.body.classList.add('reduced-animations');
+            }
+        }
+        
+        // Executar otimizações
+        optimizePerformance();
+        
+        // Debug console para desenvolvimento
+        console.log(`
+🏨 Sistema Hotel v4.0 - Performance Critical Edition
+⚡ Carregado em: <?php echo $totalLoadTime; ?>ms
+🔧 Status: <?php echo $systemStatus; ?>
+💾 BD: <?php echo $systemStats['active_guests']; ?> hóspedes ativos
+📡 MikroTik: <?php echo $systemStats['mikrotik_total']; ?> usuários
+🔄 Sync: <?php echo $systemStats['sync_rate']; ?>%
+        `);
+        
+        // Shortcuts de teclado para debug
+        window.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                console.log('Debug info:', {
+                    systemStats: <?php echo json_encode($systemStats); ?>,
+                    systemHealth: <?php echo json_encode($systemHealth); ?>,
+                    activeGuests: <?php echo json_encode($activeGuests); ?>
+                });
+            }
+        });
+        
+        // Finalizar inicialização
+        console.log('✅ Sistema Hotel v4.0 totalmente carregado e operacional');
+        trackPerformance();
+        
+        // CSS adicional para animações
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(-30px); }
+            }
+            
+            .compact-view .guest-row {
+                padding: 10px;
+                font-size: 0.9em;
+            }
+            
+            .mobile-device .stat-number {
+                font-size: 2.5em;
+            }
+            
+            .reduced-animations * {
+                animation-duration: 0.1s !important;
+                transition-duration: 0.1s !important;
+            }
+            
+            .form-actions {
+                display: flex;
+                gap: 15px;
+                justify-content: center;
+                margin-top: 30px;
+            }
+            
+            .header-cell {
+                font-weight: 600;
+                color: white;
+            }
+            
+            .guest-cell {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .username-display, .password-display {
+                font-family: 'Courier New', monospace;
+                font-size: 0.9em;
+                background: #ecf0f1;
+                padding: 4px 8px;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            
+            .username-display:hover, .password-display:hover {
+                background: #3498db;
+                color: white;
+                transform: scale(1.05);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
+<?php
+// Flush do buffer do logger ao final (HotelLogger não tem método flushBuffer)
+if (isset($hotelSystem)) {
+    // HotelLogger escreve diretamente no arquivo, não precisa de flush
+}
+?>
