@@ -98,6 +98,16 @@ class HotelSystemV41 {
         $this->userProfiles = $userProfiles;
         $this->mikrotikConfig = $mikrotikConfig;
         $this->dbConfig = $dbConfig;
+        $this->connectionErrors = [];
+        
+        // Verificar se as configurações são válidas
+        if (!is_array($mikrotikConfig)) {
+            $this->mikrotikConfig = ['host' => '', 'port' => 8728, 'username' => '', 'password' => ''];
+        }
+        
+        if (!is_array($dbConfig)) {
+            $this->dbConfig = ['host' => 'localhost', 'database' => '', 'username' => '', 'password' => ''];
+        }
         
         // Logger
         if (class_exists('HotelLogger')) {
@@ -245,6 +255,31 @@ class HotelSystemV41 {
         try {
             $this->logger->info("Conectando ao MikroTik...");
             
+            // Garantir que as configurações estão definidas
+            if (!isset($this->mikrotikConfig['host']) || empty($this->mikrotikConfig['host'])) {
+                $errorMsg = "Host do MikroTik não configurado";
+                $this->connectionErrors[] = $errorMsg;
+                $this->logger->error($errorMsg);
+                $this->mikrotik = null;
+                return;
+            }
+            
+            if (!isset($this->mikrotikConfig['port'])) {
+                $this->mikrotikConfig['port'] = 8728; // Porta padrão
+            }
+            
+            if (!isset($this->mikrotikConfig['username']) || empty($this->mikrotikConfig['username'])) {
+                $errorMsg = "Usuário do MikroTik não configurado";
+                $this->connectionErrors[] = $errorMsg;
+                $this->logger->error($errorMsg);
+                $this->mikrotik = null;
+                return;
+            }
+            
+            if (!isset($this->mikrotikConfig['password'])) {
+                $this->mikrotikConfig['password'] = ''; // Senha vazia por padrão
+            }
+            
             // Verificar se host é acessível
             if (!$this->isMikroTikReachable()) {
                 $errorMsg = "MikroTik não acessível em {$this->mikrotikConfig['host']}:{$this->mikrotikConfig['port']}";
@@ -267,13 +302,19 @@ class HotelSystemV41 {
                             $this->mikrotikConfig['host'],
                             $this->mikrotikConfig['username'],
                             $this->mikrotikConfig['password'],
-                            $this->mikrotikConfig['port'] ?? 8728
+                            $this->mikrotikConfig['port']
                         );
                         
                         // Testar conexão
-                        $testResult = $this->mikrotik->testConnection();
-                        if ($testResult['success']) {
-                            $this->logger->info("MikroTik conectado usando classe: {$className}");
+                        if (method_exists($this->mikrotik, 'testConnection')) {
+                            $testResult = $this->mikrotik->testConnection();
+                            if ($testResult['success']) {
+                                $this->logger->info("MikroTik conectado usando classe: {$className}");
+                                return;
+                            }
+                        } else {
+                            // Se não tem método testConnection, assumir que está OK
+                            $this->logger->info("MikroTik conectado usando classe: {$className} (sem teste)");
                             return;
                         }
                         
@@ -301,23 +342,43 @@ class HotelSystemV41 {
      * Verifica se MikroTik é acessível
      */
     private function isMikroTikReachable() {
+        // Verificar se as configurações estão definidas
+        if (!isset($this->mikrotikConfig['host']) || empty($this->mikrotikConfig['host'])) {
+            $this->logger->warning("Host do MikroTik não configurado");
+            return false;
+        }
+        
         $host = $this->mikrotikConfig['host'];
         $port = $this->mikrotikConfig['port'] ?? 8728;
         
+        // Verificar se o host é um IP válido ou hostname
+        if (!filter_var($host, FILTER_VALIDATE_IP) && !filter_var($host, FILTER_VALIDATE_DOMAIN)) {
+            $this->logger->warning("Host inválido: {$host}");
+            return false;
+        }
+        
         // Teste 1: Socket TCP
-        $socket = @fsockopen($host, $port, $errno, $errstr, 5);
-        if ($socket) {
-            fclose($socket);
-            $this->logger->info("MikroTik acessível via TCP");
-            return true;
+        try {
+            $socket = @fsockopen($host, $port, $errno, $errstr, 5);
+            if ($socket) {
+                fclose($socket);
+                $this->logger->info("MikroTik acessível via TCP");
+                return true;
+            }
+        } catch (Exception $e) {
+            $this->logger->warning("Erro no teste TCP: " . $e->getMessage());
         }
         
         // Teste 2: Ping (se disponível)
-        if (function_exists('exec')) {
-            $pingResult = @exec("ping -c 1 -W 3 {$host}", $output, $returnCode);
-            if ($returnCode === 0) {
-                $this->logger->info("MikroTik acessível via ping");
-                return true;
+        if (function_exists('exec') && !stripos(PHP_OS, 'win') === 0) {
+            try {
+                $pingResult = @exec("ping -c 1 -W 3 {$host} 2>&1", $output, $returnCode);
+                if ($returnCode === 0) {
+                    $this->logger->info("MikroTik acessível via ping");
+                    return true;
+                }
+            } catch (Exception $e) {
+                $this->logger->warning("Erro no ping: " . $e->getMessage());
             }
         }
         
@@ -440,34 +501,52 @@ class HotelSystemV41 {
     }
     
     private function getMikroTikStatus() {
+        // Sempre retornar estrutura consistente
+        $status = [
+            'connected' => false,
+            'host' => $this->mikrotikConfig['host'] ?? 'N/A',
+            'port' => $this->mikrotikConfig['port'] ?? 'N/A',
+            'error' => null,
+            'message' => null,
+            'reachable' => false
+        ];
+        
         if (!$this->mikrotik) {
-            return [
-                'connected' => false,
-                'error' => 'Conexão não estabelecida',
-                'host' => $this->mikrotikConfig['host'],
-                'port' => $this->mikrotikConfig['port'],
-                'reachable' => $this->isMikroTikReachable()
-            ];
+            $status['error'] = 'Conexão não estabelecida';
+            $status['reachable'] = $this->isMikroTikReachable();
+            return $status;
         }
         
         try {
             if (method_exists($this->mikrotik, 'healthCheck')) {
-                return $this->mikrotik->healthCheck();
+                $healthResult = $this->mikrotik->healthCheck();
+                
+                // Garantir que as chaves necessárias existam
+                $status['connected'] = $healthResult['connection'] ?? false;
+                $status['error'] = $healthResult['error'] ?? null;
+                $status['message'] = $healthResult['message'] ?? null;
+                $status['reachable'] = true;
+                
+                // Adicionar outras informações se disponíveis
+                if (isset($healthResult['user_count'])) {
+                    $status['user_count'] = $healthResult['user_count'];
+                }
+                if (isset($healthResult['response_time'])) {
+                    $status['response_time'] = $healthResult['response_time'];
+                }
+                
+                return $status;
             } else {
-                return [
-                    'connected' => true,
-                    'host' => $this->mikrotikConfig['host'],
-                    'port' => $this->mikrotikConfig['port'],
-                    'message' => 'Conectado (método healthCheck não disponível)'
-                ];
+                $status['connected'] = true;
+                $status['message'] = 'Conectado (método healthCheck não disponível)';
+                $status['reachable'] = true;
+                return $status;
             }
         } catch (Exception $e) {
-            return [
-                'connected' => false,
-                'error' => $e->getMessage(),
-                'host' => $this->mikrotikConfig['host'],
-                'port' => $this->mikrotikConfig['port']
-            ];
+            $status['connected'] = false;
+            $status['error'] = $e->getMessage();
+            $status['reachable'] = $this->isMikroTikReachable();
+            return $status;
         }
     }
     
@@ -895,6 +974,25 @@ try {
     $systemStats = $hotelSystem->getSystemStats();
     $systemDiagnostic = $hotelSystem->getSystemDiagnostic();
     
+    // Garantir que o diagnóstico tenha estrutura consistente
+    if (!isset($systemDiagnostic['mikrotik'])) {
+        $systemDiagnostic['mikrotik'] = [
+            'connected' => false,
+            'host' => $mikrotikConfig['host'] ?? 'N/A',
+            'port' => $mikrotikConfig['port'] ?? 'N/A',
+            'error' => 'Diagnóstico não disponível'
+        ];
+    }
+    
+    if (!isset($systemDiagnostic['database'])) {
+        $systemDiagnostic['database'] = [
+            'connected' => false,
+            'host' => $dbConfig['host'] ?? 'N/A',
+            'database' => $dbConfig['database'] ?? 'N/A',
+            'error' => 'Diagnóstico não disponível'
+        ];
+    }
+    
     $dataTime = round((microtime(true) - $dataStart) * 1000, 2);
     
 } catch (Exception $e) {
@@ -908,7 +1006,23 @@ try {
         'sync_rate' => 0,
         'error' => $e->getMessage()
     ];
-    $systemDiagnostic = ['error' => $e->getMessage()];
+    
+    $systemDiagnostic = [
+        'database' => [
+            'connected' => false,
+            'host' => $dbConfig['host'] ?? 'N/A',
+            'database' => $dbConfig['database'] ?? 'N/A',
+            'error' => 'Erro ao obter diagnóstico'
+        ],
+        'mikrotik' => [
+            'connected' => false,
+            'host' => $mikrotikConfig['host'] ?? 'N/A',
+            'port' => $mikrotikConfig['port'] ?? 'N/A',
+            'error' => 'Erro ao obter diagnóstico'
+        ],
+        'error' => $e->getMessage()
+    ];
+    
     $dataTime = round((microtime(true) - $dataStart) * 1000, 2);
 }
 
@@ -1331,14 +1445,40 @@ $totalLoadTime = round((microtime(true) - $systemInitStart) * 1000, 2);
                     
                     <div class="diagnostic-card">
                         <h3>📡 MikroTik</h3>
-                        <?php if (isset($systemDiagnostic['mikrotik'])): ?>
-                            <p>Status: <span class="<?php echo $systemDiagnostic['mikrotik']['connected'] ? 'status-online' : 'status-offline'; ?>">
-                                <?php echo $systemDiagnostic['mikrotik']['connected'] ? '🟢 Online' : '🔴 Offline'; ?>
-                            </span></p>
-                            <p>Host: <?php echo $systemDiagnostic['mikrotik']['host'] ?? 'N/A'; ?></p>
-                            <p>Porta: <?php echo $systemDiagnostic['mikrotik']['port'] ?? 'N/A'; ?></p>
-                        <?php else: ?>
-                            <p>Status: <span class="status-offline">🔴 Não disponível</span></p>
+                        <p>Status: <span class="<?php echo ($systemDiagnostic['mikrotik']['connected'] ?? false) ? 'status-online' : 'status-offline'; ?>">
+                            <?php echo ($systemDiagnostic['mikrotik']['connected'] ?? false) ? '🟢 Online' : '🔴 Offline'; ?>
+                        </span></p>
+                        <p>Host: <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['host'] ?? 'N/A'); ?></p>
+                        <p>Porta: <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['port'] ?? 'N/A'); ?></p>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['error']) && $systemDiagnostic['mikrotik']['error']): ?>
+                            <p style="color: #dc3545; font-size: 0.9em;">
+                                <strong>Erro:</strong> <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['error']); ?>
+                            </p>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['message']) && $systemDiagnostic['mikrotik']['message']): ?>
+                            <p style="color: #17a2b8; font-size: 0.9em;">
+                                <strong>Info:</strong> <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['message']); ?>
+                            </p>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['reachable'])): ?>
+                            <p style="font-size: 0.9em;">
+                                <strong>Acessível:</strong> <?php echo $systemDiagnostic['mikrotik']['reachable'] ? '✅ Sim' : '❌ Não'; ?>
+                            </p>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['user_count'])): ?>
+                            <p style="font-size: 0.9em;">
+                                <strong>Usuários:</strong> <?php echo $systemDiagnostic['mikrotik']['user_count']; ?>
+                            </p>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['response_time'])): ?>
+                            <p style="font-size: 0.9em;">
+                                <strong>Tempo:</strong> <?php echo $systemDiagnostic['mikrotik']['response_time']; ?>ms
+                            </p>
                         <?php endif; ?>
                     </div>
                     
