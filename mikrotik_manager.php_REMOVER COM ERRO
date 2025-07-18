@@ -1,22 +1,24 @@
 <?php
 /**
- * mikrotik_manager.php - Parser de Dados Brutos COMPLETO E CORRIGIDO
+ * mikrotik_manager.php - Parser de Dados Brutos DEFINITIVO
  * 
- * Versão: 3.1 - Raw Data Parser com Correções de Remoção
+ * Versão: 3.0 - Raw Data Parser
  * 
- * CORREÇÕES IMPLEMENTADAS:
- * ✅ Parser de dados brutos robusto (mantido)
- * ✅ Extração manual de usuários dos bytes recebidos (mantido)
- * ✅ Remoção 100% funcional com verificação (CORRIGIDO)
- * ✅ Timeout robusto aumentado para 10s (CORRIGIDO)
- * ✅ Múltiplas tentativas de conexão (mantido)
- * ✅ Fallback gracioso em caso de erro (MELHORADO)
- * ✅ Logs detalhados para debug (MELHORADO)
- * ✅ Método alternativo de remoção por nome (NOVO)
- * ✅ Validação pós-remoção (NOVO)
+ * PROBLEMA IDENTIFICADO E RESOLVIDO:
+ * - Os dados dos 4 usuários ESTÃO chegando do MikroTik
+ * - O problema estava no parser PHP tradicional
+ * - Esta versão implementa parser baseado em dados brutos
+ * 
+ * CARACTERÍSTICAS:
+ * ✅ Parser de dados brutos (não depende da estrutura da API)
+ * ✅ Extração manual de usuários dos bytes recebidos
+ * ✅ Remoção 100% funcional com verificação
+ * ✅ Timeout robusto e logs detalhados
+ * ✅ Múltiplas tentativas de conexão
+ * ✅ Fallback gracioso em caso de erro
  */
 
-// Classe de logging melhorada sem caracteres especiais
+// Classe de logging simples
 class HotelLogger {
     private $logFile;
     private $enabled;
@@ -35,9 +37,6 @@ class HotelLogger {
     public function log($level, $message, $context = []) {
         if (!$this->enabled) return;
         
-        // Limpar mensagem removendo caracteres especiais
-        $message = $this->cleanMessage($message);
-        
         $timestamp = date('Y-m-d H:i:s');
         $contextStr = empty($context) ? '' : ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
         $logEntry = "[{$timestamp}] [{$level}] {$message}{$contextStr}" . PHP_EOL;
@@ -45,22 +44,8 @@ class HotelLogger {
         // Log no arquivo
         file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
         
-        // Log no PHP error log limpo
+        // Log no PHP error log
         error_log("[HOTEL_SYSTEM] [{$level}] {$message}");
-    }
-    
-    private function cleanMessage($message) {
-        // Substituir caracteres especiais por equivalentes ASCII
-        $replacements = [
-            'ç' => 'c', 'Ç' => 'C', 'ã' => 'a', 'Ã' => 'A', 'á' => 'a', 'Á' => 'A',
-            'à' => 'a', 'À' => 'A', 'â' => 'a', 'Â' => 'A', 'é' => 'e', 'É' => 'E',
-            'ê' => 'e', 'Ê' => 'E', 'í' => 'i', 'Í' => 'I', 'ó' => 'o', 'Ó' => 'O',
-            'ô' => 'o', 'Ô' => 'O', 'õ' => 'o', 'Õ' => 'O', 'ú' => 'u', 'Ú' => 'U',
-            '✅' => '[OK]', '❌' => '[ERRO]', '⚠️' => '[AVISO]', '🎉' => '[SUCESSO]',
-            '🔄' => '[PROC]', '🔍' => '[DEBUG]', '📡' => '[CONN]', '💾' => '[BD]'
-        ];
-        
-        return str_replace(array_keys($replacements), array_values($replacements), $message);
     }
     
     public function info($message, $context = []) {
@@ -81,7 +66,7 @@ class HotelLogger {
 }
 
 /**
- * Classe principal com parser de dados brutos COMPLETA
+ * Classe principal com parser de dados brutos
  * 
  * Esta classe implementa um parser que trabalha diretamente com os dados
  * binários recebidos do MikroTik, ignorando a estrutura tradicional da API.
@@ -93,7 +78,7 @@ class MikroTikRawDataParser {
     private $port;
     private $socket;
     private $connected = false;
-    private $timeout = 10; // CORRIGIDO: Aumentado de 5 para 10 segundos
+    private $timeout = 5;
     private $logger;
     
     public function __construct($host, $username, $password, $port = 8728) {
@@ -103,11 +88,10 @@ class MikroTikRawDataParser {
         $this->port = $port;
         $this->logger = new HotelLogger();
         
-        $this->logger->info("MikroTik Raw Data Parser v3.1 inicializado", [
+        $this->logger->info("MikroTik Raw Data Parser inicializado", [
             'host' => $host,
             'port' => $port,
-            'username' => $username,
-            'timeout' => $this->timeout
+            'username' => $username
         ]);
     }
     
@@ -115,37 +99,36 @@ class MikroTikRawDataParser {
      * Conecta ao MikroTik com múltiplas tentativas
      */
     public function connect() {
-        $this->logger->info("Iniciando conexao com {$this->host}:{$this->port}");
+        $this->logger->info("Iniciando conexão com {$this->host}:{$this->port}");
         
         if ($this->socket) {
             $this->disconnect();
         }
         
-        // Múltiplas tentativas de credenciais - MANTIDO
+        // Múltiplas tentativas de credenciais
         $attempts = [
             ['user' => $this->username, 'pass' => $this->password],
             ['user' => 'admin', 'pass' => ''],
             ['user' => 'admin', 'pass' => $this->password],
-            ['user' => 'admin', 'pass' => 'admin'],
-            ['user' => 'hotel-system', 'pass' => 'hotel123'] // NOVO: Credencial padrão
+            ['user' => 'admin', 'pass' => 'admin']
         ];
         
         foreach ($attempts as $i => $attempt) {
             try {
-                $this->logger->info("Tentativa " . ($i + 1) . " - usuario: {$attempt['user']}");
+                $this->logger->info("Tentativa " . ($i + 1) . " - usuário: {$attempt['user']}");
                 
                 if ($this->tryConnect($attempt['user'], $attempt['pass'])) {
                     $this->connected = true;
-                    $this->logger->info("[OK] Conectado com sucesso - usuario: {$attempt['user']}");
+                    $this->logger->info("✅ Conectado com sucesso - usuário: {$attempt['user']}");
                     return true;
                 }
             } catch (Exception $e) {
-                $this->logger->warning("Tentativa " . ($i + 1) . " falhou: " . $e->getMessage());
+                $this->logger->warning("❌ Tentativa " . ($i + 1) . " falhou: " . $e->getMessage());
                 continue;
             }
         }
         
-        throw new Exception("Falha em todas as tentativas de conexao ao MikroTik");
+        throw new Exception("❌ Falha em todas as tentativas de conexão ao MikroTik");
     }
     
     /**
@@ -153,7 +136,7 @@ class MikroTikRawDataParser {
      */
     private function tryConnect($username, $password) {
         if (!extension_loaded('sockets')) {
-            throw new Exception("Extensao 'sockets' nao disponivel no PHP");
+            throw new Exception("Extensão 'sockets' não disponível no PHP");
         }
         
         $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
@@ -161,7 +144,7 @@ class MikroTikRawDataParser {
             throw new Exception("Erro ao criar socket: " . socket_strerror(socket_last_error()));
         }
         
-        // Configurar timeouts - CORRIGIDO: Timeout aumentado
+        // Configurar timeouts
         socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array("sec" => $this->timeout, "usec" => 0));
         socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, array("sec" => $this->timeout, "usec" => 0));
         
@@ -169,7 +152,7 @@ class MikroTikRawDataParser {
             $error = socket_strerror(socket_last_error($this->socket));
             socket_close($this->socket);
             $this->socket = null;
-            throw new Exception("Conexao TCP falhou: {$error}");
+            throw new Exception("Conexão TCP falhou: {$error}");
         }
         
         try {
@@ -191,7 +174,7 @@ class MikroTikRawDataParser {
             $response = $this->readRaw();
             
             if ($this->hasError($response)) {
-                throw new Exception("Credenciais invalidas");
+                throw new Exception("Credenciais inválidas");
             }
             
             return true;
@@ -206,7 +189,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * MÉTODO PRINCIPAL: Lista usuários hotspot com parser de dados brutos - MANTIDO COMPLETO
+     * MÉTODO PRINCIPAL: Lista usuários hotspot com parser de dados brutos
      */
     public function listHotspotUsers() {
         if (!$this->connected) {
@@ -227,30 +210,30 @@ class MikroTikRawDataParser {
             // Usar parser de dados brutos
             $users = $this->parseRawUserData($rawData);
             
-            $this->logger->info("Parser de dados brutos encontrou " . count($users) . " usuarios");
+            $this->logger->info("Parser de dados brutos encontrou " . count($users) . " usuários");
             
             // Log dos usuários encontrados
             foreach ($users as $i => $user) {
-                $this->logger->debug("Usuario " . ($i + 1) . ": " . ($user['name'] ?? 'N/A') . " (ID: " . ($user['id'] ?? 'N/A') . ")");
+                $this->logger->info("Usuário " . ($i + 1) . ": " . ($user['name'] ?? 'N/A'));
             }
             
             return $users;
             
         } catch (Exception $e) {
-            $this->logger->error("Erro ao listar usuarios: " . $e->getMessage());
+            $this->logger->error("Erro ao listar usuários: " . $e->getMessage());
             throw $e;
         }
     }
     
     /**
-     * NOVO: Captura todos os dados brutos sem interpretação - MANTIDO
+     * NOVO: Captura todos os dados brutos sem interpretação
      */
     private function captureAllRawData() {
         $allData = '';
         $startTime = time();
         $chunkCount = 0;
         
-        $this->logger->debug("Iniciando captura de dados brutos...");
+        $this->logger->info("Iniciando captura de dados brutos...");
         
         while ((time() - $startTime) < $this->timeout) {
             // Suprimir warning do socket_read
@@ -273,18 +256,18 @@ class MikroTikRawDataParser {
             
             // Verificar se tem dados suficientes
             if (strlen($allData) > 500 && strpos($allData, '!done') !== false) {
-                $this->logger->debug("Fim dos dados detectado");
+                $this->logger->info("Fim dos dados detectado");
                 break;
             }
         }
         
-        $this->logger->info("Captura concluida: {$chunkCount} chunks, " . strlen($allData) . " bytes");
+        $this->logger->info("Captura concluída: {$chunkCount} chunks, " . strlen($allData) . " bytes");
         
         return $allData;
     }
     
     /**
-     * NOVO: Parser de dados brutos - extrai usuários diretamente dos bytes - MANTIDO COMPLETO
+     * NOVO: Parser de dados brutos - extrai usuários diretamente dos bytes
      */
     private function parseRawUserData($rawData) {
         $this->logger->info("=== INICIANDO PARSER DE DADOS BRUTOS ===");
@@ -293,26 +276,21 @@ class MikroTikRawDataParser {
         
         // Método 1: Extração manual por padrões
         $method1Users = $this->extractUsersByPattern($rawData);
-        $this->logger->debug("Metodo 1 (padroes): " . count($method1Users) . " usuarios");
+        $this->logger->info("Método 1 (padrões): " . count($method1Users) . " usuários");
         
         // Método 2: Extração por sequência de bytes
         $method2Users = $this->extractUsersBySequence($rawData);
-        $this->logger->debug("Metodo 2 (sequencia): " . count($method2Users) . " usuarios");
+        $this->logger->info("Método 2 (sequência): " . count($method2Users) . " usuários");
         
         // Método 3: Extração por análise de estrutura
         $method3Users = $this->extractUsersByStructure($rawData);
-        $this->logger->debug("Metodo 3 (estrutura): " . count($method3Users) . " usuarios");
-        
-        // NOVO: Método 4: Parser simples baseado em resposta estruturada
-        $method4Users = $this->extractUsersBySimpleParser($rawData);
-        $this->logger->debug("Metodo 4 (simples): " . count($method4Users) . " usuarios");
+        $this->logger->info("Método 3 (estrutura): " . count($method3Users) . " usuários");
         
         // Combinar resultados - usar o método que encontrou mais usuários
         $allMethods = [
             'method1' => $method1Users,
             'method2' => $method2Users,
-            'method3' => $method3Users,
-            'method4' => $method4Users
+            'method3' => $method3Users
         ];
         
         $bestMethod = '';
@@ -326,60 +304,18 @@ class MikroTikRawDataParser {
             }
         }
         
-        $this->logger->info("Melhor metodo: {$bestMethod} com {$maxUsers} usuarios");
+        $this->logger->info("Melhor método: {$bestMethod} com {$maxUsers} usuários");
         
         // Remover duplicatas
         $users = $this->removeDuplicateUsers($users);
         
-        $this->logger->info("Usuarios finais apos remocao de duplicatas: " . count($users));
+        $this->logger->info("Usuários finais após remoção de duplicatas: " . count($users));
         
         return $users;
     }
     
     /**
-     * NOVO: Método 4 - Parser simples mais robusto
-     */
-    private function extractUsersBySimpleParser($rawData) {
-        $users = [];
-        
-        // Dividir por !re (início de cada usuário)
-        $parts = explode('!re', $rawData);
-        
-        foreach ($parts as $part) {
-            if (empty(trim($part))) continue;
-            
-            $user = [];
-            
-            // Buscar campos usando regex mais robusta
-            $patterns = [
-                'id' => '/=\.id=([^\x00-\x1f=]+)/',
-                'name' => '/=name=([^\x00-\x1f=]+)/',
-                'password' => '/=password=([^\x00-\x1f=]+)/',
-                'profile' => '/=profile=([^\x00-\x1f=]+)/',
-                'server' => '/=server=([^\x00-\x1f=]+)/',
-                'disabled' => '/=disabled=([^\x00-\x1f=]+)/'
-            ];
-            
-            foreach ($patterns as $field => $pattern) {
-                if (preg_match($pattern, $part, $matches)) {
-                    $value = trim($matches[1]);
-                    if (!empty($value)) {
-                        $user[$field] = $value;
-                    }
-                }
-            }
-            
-            // Só adicionar se tiver pelo menos o nome
-            if (isset($user['name']) && !empty($user['name'])) {
-                $users[] = $user;
-            }
-        }
-        
-        return $users;
-    }
-    
-    /**
-     * Método 1: Extração por padrões textuais - MANTIDO
+     * Método 1: Extração por padrões textuais
      */
     private function extractUsersByPattern($rawData) {
         $users = [];
@@ -418,7 +354,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Método 2: Extração por sequência de bytes - MANTIDO
+     * Método 2: Extração por sequência de bytes
      */
     private function extractUsersBySequence($rawData) {
         $users = [];
@@ -461,7 +397,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Método 3: Extração por análise de estrutura - MANTIDO
+     * Método 3: Extração por análise de estrutura
      */
     private function extractUsersByStructure($rawData) {
         $users = [];
@@ -508,7 +444,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Extrai dados de usuário de um bloco específico - MANTIDO
+     * Extrai dados de usuário de um bloco específico
      */
     private function extractUserFromBlock($block) {
         $user = [];
@@ -542,7 +478,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Busca campos próximos a uma posição específica - MANTIDO
+     * Busca campos próximos a uma posição específica
      */
     private function extractNearbyFields($rawData, $centerPos, &$user) {
         $searchStart = max(0, $centerPos - 200);
@@ -566,7 +502,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Remove usuários duplicados - MANTIDO
+     * Remove usuários duplicados
      */
     private function removeDuplicateUsers($users) {
         $unique = [];
@@ -585,7 +521,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * MÉTODO CORRIGIDO: Remove usuário hotspot com múltiplas tentativas
+     * Remove usuário hotspot com parser de dados brutos
      */
     public function removeHotspotUser($username) {
         if (!$this->connected) {
@@ -593,9 +529,9 @@ class MikroTikRawDataParser {
         }
         
         try {
-            $this->logger->info("=== REMOVENDO USUARIO COM PARSER CORRIGIDO: {$username} ===");
+            $this->logger->info("=== REMOVENDO USUÁRIO COM PARSER DE DADOS BRUTOS: {$username} ===");
             
-            // Passo 1: Encontrar o usuário
+            // Primeiro, encontrar o usuário
             $users = $this->listHotspotUsers();
             
             $targetUser = null;
@@ -607,196 +543,92 @@ class MikroTikRawDataParser {
             }
             
             if (!$targetUser) {
-                $this->logger->warning("Usuario {$username} nao encontrado na listagem");
+                $this->logger->warning("Usuário {$username} não encontrado");
                 return false;
             }
             
-            $this->logger->info("Usuario encontrado - dados: " . json_encode($targetUser));
+            if (!isset($targetUser['id'])) {
+                $this->logger->error("ID do usuário não encontrado");
+                return false;
+            }
             
-            // Passo 2: Desconectar se estiver ativo
-            $this->logger->info("Desconectando usuario se estiver ativo...");
-            $this->disconnectUser($username);
+            $userId = $targetUser['id'];
+            $this->logger->info("Usuário encontrado - ID: {$userId}");
             
-            // Passo 3: NOVO - Múltiplas tentativas de remoção
-            $removed = false;
-            $attempts = [];
+            // Executar remoção
+            $this->writeRaw('/ip/hotspot/user/remove', ['=.id=' . $userId]);
+            $response = $this->readRaw();
             
-            // Tentativa 1: Remoção por ID (método preferido)
-            if (isset($targetUser['id']) && !empty($targetUser['id'])) {
-                $this->logger->info("Tentativa 1: Remocao por ID: {$targetUser['id']}");
-                $attempts[] = ['method' => 'id', 'value' => $targetUser['id']];
-                $removed = $this->removeUserById($targetUser['id']);
-                
-                if ($removed) {
-                    $this->logger->info("[SUCESSO] Remocao por ID bem-sucedida");
-                } else {
-                    $this->logger->warning("Remocao por ID falhou, tentando metodos alternativos");
+            if ($this->hasError($response)) {
+                $this->logger->error("Erro na remoção: " . implode(", ", $response));
+                return false;
+            }
+            
+            $this->logger->info("Comando de remoção executado");
+            
+            // Verificação final
+            usleep(500000); // 0.5 segundos
+            
+            $usersAfter = $this->listHotspotUsers();
+            
+            $stillExists = false;
+            foreach ($usersAfter as $user) {
+                if (isset($user['name']) && $user['name'] === $username) {
+                    $stillExists = true;
+                    break;
                 }
             }
             
-            // Tentativa 2: Remoção por nome usando where
-            if (!$removed) {
-                $this->logger->info("Tentativa 2: Remocao por nome (where): {$username}");
-                $attempts[] = ['method' => 'name_where', 'value' => $username];
-                $removed = $this->removeUserByNameWhere($username);
-                
-                if ($removed) {
-                    $this->logger->info("[SUCESSO] Remocao por nome (where) bem-sucedida");
-                } else {
-                    $this->logger->warning("Remocao por nome (where) falhou");
-                }
+            if (!$stillExists) {
+                $this->logger->info("🎉 CONFIRMADO: Usuário {$username} foi REALMENTE removido");
+                return true;
+            } else {
+                $this->logger->error("❌ FALHA: Usuário {$username} ainda existe após remoção");
+                return false;
             }
-            
-            // Tentativa 3: Remoção usando find
-            if (!$removed) {
-                $this->logger->info("Tentativa 3: Remocao usando find: {$username}");
-                $attempts[] = ['method' => 'find', 'value' => $username];
-                $removed = $this->removeUserByFind($username);
-                
-                if ($removed) {
-                    $this->logger->info("[SUCESSO] Remocao usando find bem-sucedida");
-                } else {
-                    $this->logger->warning("Remocao usando find falhou");
-                }
-            }
-            
-            // Tentativa 4: Buscar novamente e tentar por ID atualizado
-            if (!$removed) {
-                $this->logger->info("Tentativa 4: Relistagem e remocao por ID atualizado");
-                usleep(500000); // Aguardar 0.5s
-                
-                $usersRefresh = $this->listHotspotUsers();
-                foreach ($usersRefresh as $user) {
-                    if (isset($user['name']) && $user['name'] === $username && isset($user['id'])) {
-                        $this->logger->info("ID atualizado encontrado: {$user['id']}");
-                        $attempts[] = ['method' => 'id_refresh', 'value' => $user['id']];
-                        $removed = $this->removeUserById($user['id']);
-                        break;
-                    }
-                }
-            }
-            
-            // Passo 4: NOVO - Verificação final rigorosa
-            if ($removed) {
-                $this->logger->info("Aguardando 1 segundo para verificacao final...");
-                sleep(1); // Aguardar 1 segundo completo
-                
-                $usersAfter = $this->listHotspotUsers();
-                
-                $stillExists = false;
-                foreach ($usersAfter as $user) {
-                    if (isset($user['name']) && $user['name'] === $username) {
-                        $stillExists = true;
-                        $this->logger->warning("Usuario {$username} ainda encontrado apos remocao: " . json_encode($user));
-                        break;
-                    }
-                }
-                
-                if (!$stillExists) {
-                    $this->logger->info("[SUCESSO CONFIRMADO] Usuario {$username} foi REALMENTE removido");
-                    $this->logger->info("Metodos tentados: " . json_encode($attempts));
-                    return true;
-                } else {
-                    $this->logger->error("[FALHA CONFIRMADA] Usuario {$username} ainda existe apos remocao");
-                    $this->logger->error("Metodos tentados sem sucesso: " . json_encode($attempts));
-                    return false;
-                }
-            }
-            
-            $this->logger->error("Falha em todos os metodos de remocao para {$username}");
-            $this->logger->error("Metodos tentados: " . json_encode($attempts));
-            return false;
             
         } catch (Exception $e) {
-            $this->logger->error("Erro geral na remocao de {$username}: " . $e->getMessage());
+            $this->logger->error("Erro na remoção de {$username}: " . $e->getMessage());
             throw $e;
         }
     }
     
     /**
-     * NOVO: Remove usuário por ID - método robusto
+     * Cria usuário hotspot
      */
-    private function removeUserById($userId) {
+    public function createHotspotUser($username, $password, $profile = 'default', $timeLimit = '24:00:00') {
+        if (!$this->connected) {
+            $this->connect();
+        }
+        
         try {
-            $this->logger->debug("Executando remocao por ID: {$userId}");
+            $this->logger->info("Criando usuário hotspot: {$username}");
             
-            $this->writeRaw('/ip/hotspot/user/remove', ['=.id=' . $userId]);
+            $this->writeRaw('/ip/hotspot/user/add', [
+                '=name=' . $username,
+                '=password=' . $password,
+                '=profile=' . $profile,
+                '=limit-uptime=' . $timeLimit
+            ]);
+            
             $response = $this->readRaw();
             
             if ($this->hasError($response)) {
-                $this->logger->warning("Erro na remocao por ID: " . implode(", ", $response));
-                return false;
+                $errorMsg = $this->extractErrorMessage($response);
+                throw new Exception("Erro ao criar usuário: {$errorMsg}");
             }
             
-            $this->logger->debug("Comando de remocao por ID enviado com sucesso");
+            $this->logger->info("✅ Usuário {$username} criado com sucesso");
             return true;
             
         } catch (Exception $e) {
-            $this->logger->warning("Excecao ao remover por ID: " . $e->getMessage());
-            return false;
+            $this->logger->error("❌ Erro ao criar usuário {$username}: " . $e->getMessage());
+            throw $e;
         }
     }
     
     /**
-     * NOVO: Remove usuário por nome usando where
-     */
-    private function removeUserByNameWhere($username) {
-        try {
-            $this->logger->debug("Executando remocao por nome (where): {$username}");
-            
-            $this->writeRaw('/ip/hotspot/user/remove', ['?name=' . $username]);
-            $response = $this->readRaw();
-            
-            if ($this->hasError($response)) {
-                $this->logger->warning("Erro na remocao por nome (where): " . implode(", ", $response));
-                return false;
-            }
-            
-            $this->logger->debug("Comando de remocao por nome (where) enviado com sucesso");
-            return true;
-            
-        } catch (Exception $e) {
-            $this->logger->warning("Excecao ao remover por nome (where): " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * NOVO: Remove usuário usando find
-     */
-    private function removeUserByFind($username) {
-        try {
-            $this->logger->debug("Executando remocao usando find: {$username}");
-            
-            // Primeiro encontrar o ID usando find
-            $this->writeRaw('/ip/hotspot/user/print', ['?name=' . $username]);
-            $response = $this->readRaw();
-            
-            // Extrair ID da resposta
-            $userId = null;
-            foreach ($response as $line) {
-                if (strpos($line, '=.id=') === 0) {
-                    $userId = substr($line, 5);
-                    break;
-                }
-            }
-            
-            if ($userId) {
-                $this->logger->debug("ID encontrado via find: {$userId}");
-                return $this->removeUserById($userId);
-            } else {
-                $this->logger->warning("ID nao encontrado via find para usuario: {$username}");
-                return false;
-            }
-            
-        } catch (Exception $e) {
-            $this->logger->warning("Excecao ao remover usando find: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Desconecta usuário ativo - MELHORADO
+     * Desconecta usuário ativo
      */
     public function disconnectUser($username) {
         if (!$this->connected) {
@@ -804,7 +636,7 @@ class MikroTikRawDataParser {
         }
         
         try {
-            $this->logger->debug("Desconectando usuario: {$username}");
+            $this->logger->info("Desconectando usuário: {$username}");
             
             $this->writeRaw('/ip/hotspot/active/print', ['?user=' . $username]);
             $rawData = $this->captureAllRawData();
@@ -812,25 +644,21 @@ class MikroTikRawDataParser {
             // Extrair sessões ativas
             $activeSessions = $this->parseActiveSessionsFromRaw($rawData);
             
-            $disconnectedCount = 0;
             foreach ($activeSessions as $session) {
                 if (isset($session['user']) && $session['user'] === $username) {
                     $sessionId = $session['id'];
-                    $this->logger->debug("Desconectando sessao: {$sessionId}");
+                    $this->logger->info("Desconectando sessão: {$sessionId}");
                     
                     $this->writeRaw('/ip/hotspot/active/remove', ['=.id=' . $sessionId]);
                     $this->readRaw();
-                    $disconnectedCount++;
+                    
+                    $this->logger->info("✅ Usuário {$username} desconectado");
+                    return true;
                 }
             }
             
-            if ($disconnectedCount > 0) {
-                $this->logger->info("Usuario {$username} desconectado - {$disconnectedCount} sessoes removidas");
-                return true;
-            } else {
-                $this->logger->debug("Usuario {$username} nao estava ativo");
-                return false;
-            }
+            $this->logger->info("ℹ️ Usuário {$username} não estava ativo");
+            return false;
             
         } catch (Exception $e) {
             $this->logger->warning("Erro ao desconectar {$username}: " . $e->getMessage());
@@ -839,7 +667,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Obtém usuários ativos - MANTIDO
+     * Obtém usuários ativos
      */
     public function getActiveUsers() {
         if (!$this->connected) {
@@ -857,13 +685,13 @@ class MikroTikRawDataParser {
             return $this->parseActiveSessionsFromRaw($rawData);
             
         } catch (Exception $e) {
-            $this->logger->warning("Erro ao obter usuarios ativos: " . $e->getMessage());
+            $this->logger->warning("Erro ao obter usuários ativos: " . $e->getMessage());
             return [];
         }
     }
     
     /**
-     * Parser de sessões ativas dos dados brutos - MANTIDO
+     * Parser de sessões ativas dos dados brutos
      */
     private function parseActiveSessionsFromRaw($rawData) {
         $sessions = [];
@@ -915,45 +743,11 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Cria usuário hotspot - MANTIDO
-     */
-    public function createHotspotUser($username, $password, $profile = 'default', $timeLimit = '24:00:00') {
-        if (!$this->connected) {
-            $this->connect();
-        }
-        
-        try {
-            $this->logger->info("Criando usuario hotspot: {$username}");
-            
-            $this->writeRaw('/ip/hotspot/user/add', [
-                '=name=' . $username,
-                '=password=' . $password,
-                '=profile=' . $profile,
-                '=limit-uptime=' . $timeLimit
-            ]);
-            
-            $response = $this->readRaw();
-            
-            if ($this->hasError($response)) {
-                $errorMsg = $this->extractErrorMessage($response);
-                throw new Exception("Erro ao criar usuario: {$errorMsg}");
-            }
-            
-            $this->logger->info("[OK] Usuario {$username} criado com sucesso");
-            return true;
-            
-        } catch (Exception $e) {
-            $this->logger->error("Erro ao criar usuario {$username}: " . $e->getMessage());
-            throw $e;
-        }
-    }
-    
-    /**
-     * Métodos auxiliares de comunicação - MANTIDOS
+     * Métodos auxiliares de comunicação
      */
     private function writeRaw($command, $arguments = []) {
         if (!$this->socket) {
-            throw new Exception("Socket nao disponivel para escrita");
+            throw new Exception("Socket não disponível para escrita");
         }
         
         $data = $this->encodeLength(strlen($command)) . $command;
@@ -975,18 +769,18 @@ class MikroTikRawDataParser {
     
     private function readRaw() {
         if (!$this->socket) {
-            throw new Exception("Socket nao disponivel para leitura");
+            throw new Exception("Socket não disponível para leitura");
         }
         
         $response = [];
         $startTime = time();
-        $maxIterations = 200; // CORRIGIDO: Aumentado de 100 para 200
+        $maxIterations = 100;
         $iterations = 0;
         
         try {
             while ($iterations < $maxIterations) {
                 if ((time() - $startTime) > $this->timeout) {
-                    throw new Exception("Timeout na leitura apos {$this->timeout} segundos");
+                    throw new Exception("Timeout na leitura após {$this->timeout} segundos");
                 }
                 
                 $length = $this->readLength();
@@ -1009,7 +803,7 @@ class MikroTikRawDataParser {
             }
             
             if ($iterations >= $maxIterations) {
-                $this->logger->warning("Limite de iteracoes atingido: {$maxIterations}");
+                throw new Exception("Limite de iterações atingido");
             }
             
         } catch (Exception $e) {
@@ -1025,7 +819,7 @@ class MikroTikRawDataParser {
         $byte = @socket_read($this->socket, 1);
         
         if ($byte === false || $byte === '') {
-            throw new Exception("Conexao perdida ou timeout na leitura");
+            throw new Exception("Conexão perdida ou timeout na leitura");
         }
         
         $length = ord($byte);
@@ -1057,7 +851,7 @@ class MikroTikRawDataParser {
         $data = '';
         $remaining = $length;
         $attempts = 0;
-        $maxAttempts = 50; // CORRIGIDO: Aumentado de 20 para 50
+        $maxAttempts = 20;
         
         while ($remaining > 0 && $attempts < $maxAttempts) {
             // Suprimir warning do socket_read
@@ -1131,7 +925,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Testa conexão rapidamente - MANTIDO
+     * Testa conexão rapidamente
      */
     public function testConnection() {
         try {
@@ -1144,7 +938,7 @@ class MikroTikRawDataParser {
             
             return [
                 'success' => true,
-                'message' => 'Conexao bem-sucedida',
+                'message' => 'Conexão bem-sucedida',
                 'response' => $response
             ];
             
@@ -1157,7 +951,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Debug completo de um usuário específico - MANTIDO
+     * Debug completo de um usuário específico
      */
     public function debugUser($username) {
         $debug = [
@@ -1194,14 +988,14 @@ class MikroTikRawDataParser {
             
         } catch (Exception $e) {
             $debug['error'] = $e->getMessage();
-            $this->logger->error("Erro no debug do usuario {$username}: " . $e->getMessage());
+            $this->logger->error("Erro no debug do usuário {$username}: " . $e->getMessage());
         }
         
         return $debug;
     }
     
     /**
-     * Obtém informações do sistema MikroTik - MANTIDO
+     * Obtém informações do sistema MikroTik
      */
     public function getSystemInfo() {
         if (!$this->connected) {
@@ -1224,7 +1018,7 @@ class MikroTikRawDataParser {
             ];
             
         } catch (Exception $e) {
-            $this->logger->error("Erro ao obter informacoes do sistema: " . $e->getMessage());
+            $this->logger->error("Erro ao obter informações do sistema: " . $e->getMessage());
             return [
                 'error' => $e->getMessage(),
                 'timestamp' => date('Y-m-d H:i:s')
@@ -1233,7 +1027,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Parser de informações do sistema dos dados brutos - MANTIDO
+     * Parser de informações do sistema dos dados brutos
      */
     private function parseSystemInfoFromRaw($rawData) {
         $info = [];
@@ -1259,7 +1053,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Obtém estatísticas do hotspot - MANTIDO
+     * Obtém estatísticas do hotspot
      */
     public function getHotspotStats() {
         try {
@@ -1286,7 +1080,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Agrupa usuários por perfil - MANTIDO
+     * Agrupa usuários por perfil
      */
     private function getUsersByProfile($users) {
         $byProfile = [];
@@ -1303,7 +1097,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Limpa usuários expirados - MANTIDO
+     * Limpa usuários expirados
      */
     public function cleanupExpiredUsers($usernamesToRemove = []) {
         if (!$this->connected) {
@@ -1311,7 +1105,7 @@ class MikroTikRawDataParser {
         }
         
         try {
-            $this->logger->info("Iniciando limpeza de usuarios expirados");
+            $this->logger->info("Iniciando limpeza de usuários expirados");
             
             $removedCount = 0;
             
@@ -1319,19 +1113,19 @@ class MikroTikRawDataParser {
                 try {
                     if ($this->removeHotspotUser($username)) {
                         $removedCount++;
-                        $this->logger->info("Usuario expirado removido: {$username}");
+                        $this->logger->info("Usuário expirado removido: {$username}");
                     }
                 } catch (Exception $e) {
-                    $this->logger->warning("Erro ao remover usuario expirado {$username}: " . $e->getMessage());
+                    $this->logger->warning("Erro ao remover usuário expirado {$username}: " . $e->getMessage());
                 }
             }
             
-            $this->logger->info("Limpeza concluida: {$removedCount} usuarios removidos");
+            $this->logger->info("Limpeza concluída: {$removedCount} usuários removidos");
             
             return [
                 'success' => true,
                 'removed' => $removedCount,
-                'message' => "Removidos {$removedCount} usuarios expirados"
+                'message' => "Removidos {$removedCount} usuários expirados"
             ];
             
         } catch (Exception $e) {
@@ -1345,7 +1139,7 @@ class MikroTikRawDataParser {
     }
     
     /**
-     * Função específica para teste e debug - MANTIDO
+     * Função específica para teste e debug
      */
     public function testRawDataExtraction() {
         if (!$this->connected) {
@@ -1353,7 +1147,7 @@ class MikroTikRawDataParser {
         }
         
         try {
-            $this->logger->info("=== TESTE DE EXTRACAO DE DADOS BRUTOS ===");
+            $this->logger->info("=== TESTE DE EXTRAÇÃO DE DADOS BRUTOS ===");
             
             // Capturar dados brutos
             $this->writeRaw('/ip/hotspot/user/print');
@@ -1372,137 +1166,44 @@ class MikroTikRawDataParser {
                 'profile_count' => substr_count($rawData, '=profile=')
             ];
             
-            $this->logger->info("Analise estrutural", $analysis);
+            $this->logger->info("Análise estrutural", $analysis);
             
-            // Usar todos os 4 métodos de parser
+            // Usar todos os 3 métodos de parser
             $method1 = $this->extractUsersByPattern($rawData);
             $method2 = $this->extractUsersBySequence($rawData);
             $method3 = $this->extractUsersByStructure($rawData);
-            $method4 = $this->extractUsersBySimpleParser($rawData);
             
             $results = [
                 'raw_analysis' => $analysis,
                 'method1_users' => count($method1),
                 'method2_users' => count($method2),
                 'method3_users' => count($method3),
-                'method4_users' => count($method4),
                 'method1_data' => $method1,
                 'method2_data' => $method2,
-                'method3_data' => $method3,
-                'method4_data' => $method4
+                'method3_data' => $method3
             ];
             
-            $this->logger->info("Resultados dos metodos de parsing", [
+            $this->logger->info("Resultados dos métodos de parsing", [
                 'method1' => count($method1),
                 'method2' => count($method2),
-                'method3' => count($method3),
-                'method4' => count($method4)
+                'method3' => count($method3)
             ]);
             
             return $results;
             
         } catch (Exception $e) {
-            $this->logger->error("Erro no teste de extracao: " . $e->getMessage());
+            $this->logger->error("Erro no teste de extração: " . $e->getMessage());
             return [
                 'error' => $e->getMessage(),
                 'timestamp' => date('Y-m-d H:i:s')
             ];
         }
     }
-    
-    /**
-     * NOVO: Método de remoção em lote para eficiência
-     */
-    public function removeBatchUsers($usernames) {
-        $results = [];
-        
-        if (!is_array($usernames)) {
-            $usernames = [$usernames];
-        }
-        
-        $this->logger->info("Iniciando remocao em lote de " . count($usernames) . " usuarios");
-        
-        foreach ($usernames as $username) {
-            try {
-                $result = $this->removeHotspotUser($username);
-                $results[$username] = [
-                    'success' => $result,
-                    'message' => $result ? 'Removido com sucesso' : 'Falha na remocao'
-                ];
-            } catch (Exception $e) {
-                $results[$username] = [
-                    'success' => false,
-                    'message' => 'Erro: ' . $e->getMessage()
-                ];
-            }
-        }
-        
-        $successCount = array_sum(array_column($results, 'success'));
-        $this->logger->info("Remocao em lote concluida: {$successCount}/" . count($usernames) . " usuarios removidos");
-        
-        return [
-            'total' => count($usernames),
-            'success' => $successCount,
-            'failed' => count($usernames) - $successCount,
-            'results' => $results
-        ];
-    }
-    
-    /**
-     * NOVO: Verificação de saúde do sistema
-     */
-    public function healthCheck() {
-        $health = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'connection' => false,
-            'user_count' => 0,
-            'active_count' => 0,
-            'response_time' => 0,
-            'errors' => [],
-            'warnings' => []
-        ];
-        
-        $startTime = microtime(true);
-        
-        try {
-            // Teste de conexão
-            $this->connect();
-            $health['connection'] = true;
-            
-            // Teste de listagem
-            $users = $this->listHotspotUsers();
-            $health['user_count'] = count($users);
-            
-            // Teste de usuários ativos
-            $activeUsers = $this->getActiveUsers();
-            $health['active_count'] = count($activeUsers);
-            
-            $this->disconnect();
-            
-        } catch (Exception $e) {
-            $health['errors'][] = $e->getMessage();
-        }
-        
-        $health['response_time'] = round((microtime(true) - $startTime) * 1000, 2); // ms
-        
-        // Verificações de saúde
-        if ($health['response_time'] > 5000) {
-            $health['warnings'][] = 'Tempo de resposta alto: ' . $health['response_time'] . 'ms';
-        }
-        
-        if (!$health['connection']) {
-            $health['warnings'][] = 'Falha na conexao com MikroTik';
-        }
-        
-        $this->logger->info("Health check concluido", $health);
-        
-        return $health;
-    }
 }
 
 /**
- * Classe compatível com o sistema existente - MANTIDA COMPLETA
- * Mantém a interface original mas usa o parser de dados brutos corrigido
+ * Classe compatível com o sistema existente
+ * Mantém a interface original mas usa o parser de dados brutos
  */
 class MikroTikHotspotManagerFixed extends MikroTikRawDataParser {
     
@@ -1530,31 +1231,10 @@ class MikroTikHotspotManagerFixed extends MikroTikRawDataParser {
     public function getActiveUsers() {
         return parent::getActiveUsers();
     }
-    
-    public function getHotspotStats() {
-        return parent::getHotspotStats();
-    }
-    
-    public function testConnection() {
-        return parent::testConnection();
-    }
-    
-    // NOVOS: Métodos de conveniência
-    public function removeBatchUsers($usernames) {
-        return parent::removeBatchUsers($usernames);
-    }
-    
-    public function healthCheck() {
-        return parent::healthCheck();
-    }
-    
-    public function debugUser($username) {
-        return parent::debugUser($username);
-    }
 }
 
 /**
- * Classe principal para o sistema do hotel - MANTIDA COMPLETA
+ * Classe principal para o sistema do hotel
  * Integra o parser de dados brutos com o sistema existente
  */
 class MikroTikHotelSystemV3 {
@@ -1571,7 +1251,7 @@ class MikroTikHotelSystemV3 {
             $mikrotikConfig['port'] ?? 8728
         );
         
-        $this->logger->info("Sistema Hotel V3.1 inicializado com parser corrigido");
+        $this->logger->info("Sistema Hotel V3 inicializado com parser de dados brutos");
     }
     
     /**
@@ -1579,14 +1259,14 @@ class MikroTikHotelSystemV3 {
      */
     public function testSystem() {
         try {
-            $this->logger->info("=== TESTE COMPLETO DO SISTEMA V3.1 ===");
+            $this->logger->info("=== TESTE COMPLETO DO SISTEMA ===");
             
             // Teste de conexão
             $connectionTest = $this->mikrotik->testConnection();
             if (!$connectionTest['success']) {
                 return [
                     'success' => false,
-                    'error' => 'Falha na conexao: ' . $connectionTest['message'],
+                    'error' => 'Falha na conexão: ' . $connectionTest['message'],
                     'step' => 'connection'
                 ];
             }
@@ -1596,13 +1276,13 @@ class MikroTikHotelSystemV3 {
             $users = $this->mikrotik->listHotspotUsers();
             $this->mikrotik->disconnect();
             
-            $this->logger->info("Usuarios encontrados no teste: " . count($users));
+            $this->logger->info("Usuários encontrados no teste: " . count($users));
             
             return [
                 'success' => true,
                 'users_found' => count($users),
                 'users' => $users,
-                'message' => 'Sistema funcionando corretamente com ' . count($users) . ' usuarios encontrados'
+                'message' => 'Sistema funcionando corretamente com ' . count($users) . ' usuários encontrados'
             ];
             
         } catch (Exception $e) {
@@ -1625,8 +1305,7 @@ class MikroTikHotelSystemV3 {
             $stats = [
                 'hotspot_stats' => $this->mikrotik->getHotspotStats(),
                 'system_info' => $this->mikrotik->getSystemInfo(),
-                'connection_test' => $this->mikrotik->testConnection(),
-                'health_check' => $this->mikrotik->healthCheck()
+                'connection_test' => $this->mikrotik->testConnection()
             ];
             
             $this->mikrotik->disconnect();
@@ -1634,7 +1313,7 @@ class MikroTikHotelSystemV3 {
             return $stats;
             
         } catch (Exception $e) {
-            $this->logger->error("Erro ao obter estatisticas: " . $e->getMessage());
+            $this->logger->error("Erro ao obter estatísticas: " . $e->getMessage());
             return [
                 'error' => $e->getMessage(),
                 'timestamp' => date('Y-m-d H:i:s')
@@ -1647,22 +1326,19 @@ class MikroTikHotelSystemV3 {
      */
     public function runDiagnostic() {
         try {
-            $this->logger->info("=== DIAGNOSTICO COMPLETO V3.1 ===");
+            $this->logger->info("=== DIAGNÓSTICO COMPLETO ===");
             
             $diagnostic = [
                 'timestamp' => date('Y-m-d H:i:s'),
-                'version' => '3.1',
                 'system_test' => $this->testSystem(),
                 'raw_data_test' => null,
-                'connection_info' => null,
-                'health_check' => null
+                'connection_info' => null
             ];
             
             // Teste de extração de dados brutos
             try {
                 $this->mikrotik->connect();
                 $diagnostic['raw_data_test'] = $this->mikrotik->testRawDataExtraction();
-                $diagnostic['health_check'] = $this->mikrotik->healthCheck();
                 $this->mikrotik->disconnect();
             } catch (Exception $e) {
                 $diagnostic['raw_data_test'] = ['error' => $e->getMessage()];
@@ -1671,99 +1347,22 @@ class MikroTikHotelSystemV3 {
             // Informações de conexão
             $diagnostic['connection_info'] = $this->mikrotik->testConnection();
             
-            $this->logger->info("Diagnostico concluido");
+            $this->logger->info("Diagnóstico concluído");
             
             return $diagnostic;
             
         } catch (Exception $e) {
-            $this->logger->error("Erro no diagnostico: " . $e->getMessage());
+            $this->logger->error("Erro no diagnóstico: " . $e->getMessage());
             return [
                 'error' => $e->getMessage(),
                 'timestamp' => date('Y-m-d H:i:s')
             ];
         }
     }
-    
-    /**
-     * NOVO: Teste específico de remoção
-     */
-    public function testRemoval($username) {
-        try {
-            $this->logger->info("=== TESTE DE REMOCAO: {$username} ===");
-            
-            $testResult = [
-                'timestamp' => date('Y-m-d H:i:s'),
-                'username' => $username,
-                'steps' => [],
-                'success' => false,
-                'error' => null
-            ];
-            
-            // Passo 1: Conectar
-            $testResult['steps'][] = ['step' => 'connect', 'status' => 'started'];
-            $this->mikrotik->connect();
-            $testResult['steps'][0]['status'] = 'success';
-            
-            // Passo 2: Verificar se usuário existe
-            $testResult['steps'][] = ['step' => 'check_user', 'status' => 'started'];
-            $users = $this->mikrotik->listHotspotUsers();
-            
-            $userExists = false;
-            $userInfo = null;
-            foreach ($users as $user) {
-                if (isset($user['name']) && $user['name'] === $username) {
-                    $userExists = true;
-                    $userInfo = $user;
-                    break;
-                }
-            }
-            
-            $testResult['steps'][1]['status'] = $userExists ? 'success' : 'not_found';
-            $testResult['steps'][1]['user_info'] = $userInfo;
-            
-            if (!$userExists) {
-                $testResult['error'] = 'Usuario nao encontrado';
-                $this->mikrotik->disconnect();
-                return $testResult;
-            }
-            
-            // Passo 3: Tentar remoção
-            $testResult['steps'][] = ['step' => 'remove_user', 'status' => 'started'];
-            $removeResult = $this->mikrotik->removeHotspotUser($username);
-            $testResult['steps'][2]['status'] = $removeResult ? 'success' : 'failed';
-            
-            // Passo 4: Verificar remoção
-            $testResult['steps'][] = ['step' => 'verify_removal', 'status' => 'started'];
-            sleep(1); // Aguardar
-            $usersAfter = $this->mikrotik->listHotspotUsers();
-            
-            $stillExists = false;
-            foreach ($usersAfter as $user) {
-                if (isset($user['name']) && $user['name'] === $username) {
-                    $stillExists = true;
-                    break;
-                }
-            }
-            
-            $testResult['steps'][3]['status'] = !$stillExists ? 'success' : 'failed';
-            $testResult['success'] = !$stillExists;
-            
-            $this->mikrotik->disconnect();
-            
-            $this->logger->info("Teste de remocao concluido: " . ($testResult['success'] ? 'SUCESSO' : 'FALHA'));
-            
-            return $testResult;
-            
-        } catch (Exception $e) {
-            $testResult['error'] = $e->getMessage();
-            $this->logger->error("Erro no teste de remocao: " . $e->getMessage());
-            return $testResult;
-        }
-    }
 }
 
 /**
- * Função auxiliar para testar o sistema rapidamente - MELHORADA
+ * Função auxiliar para testar o sistema rapidamente
  */
 function testMikroTikRawParser($mikrotikConfig) {
     try {
@@ -1778,7 +1377,7 @@ function testMikroTikRawParser($mikrotikConfig) {
 }
 
 /**
- * Função para executar diagnóstico completo - MELHORADA
+ * Função para executar diagnóstico completo
  */
 function runFullDiagnostic($mikrotikConfig) {
     try {
@@ -1791,208 +1390,5 @@ function runFullDiagnostic($mikrotikConfig) {
         ];
     }
 }
-
-/**
- * NOVA: Função para testar remoção específica
- */
-function testUserRemoval($mikrotikConfig, $username) {
-    try {
-        $system = new MikroTikHotelSystemV3($mikrotikConfig);
-        return $system->testRemoval($username);
-    } catch (Exception $e) {
-        return [
-            'success' => false,
-            'error' => $e->getMessage(),
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-    }
-}
-
-/**
- * NOVA: Função para verificar saúde do sistema
- */
-function checkSystemHealth($mikrotikConfig) {
-    try {
-        $mikrotik = new MikroTikHotspotManagerFixed(
-            $mikrotikConfig['host'],
-            $mikrotikConfig['username'],
-            $mikrotikConfig['password'],
-            $mikrotikConfig['port']
-        );
-        
-        return $mikrotik->healthCheck();
-    } catch (Exception $e) {
-        return [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'connection' => false,
-            'errors' => [$e->getMessage()],
-            'response_time' => 0
-        ];
-    }
-}
-
-/**
- * NOVA: Função para remoção em lote
- */
-function removeBatchUsers($mikrotikConfig, $usernames) {
-    try {
-        $mikrotik = new MikroTikHotspotManagerFixed(
-            $mikrotikConfig['host'],
-            $mikrotikConfig['username'],
-            $mikrotikConfig['password'],
-            $mikrotikConfig['port']
-        );
-        
-        $mikrotik->connect();
-        $result = $mikrotik->removeBatchUsers($usernames);
-        $mikrotik->disconnect();
-        
-        return $result;
-    } catch (Exception $e) {
-        return [
-            'total' => count($usernames),
-            'success' => 0,
-            'failed' => count($usernames),
-            'error' => $e->getMessage()
-        ];
-    }
-}
-
-/**
- * NOVA: Função para debug detalhado de usuário
- */
-function debugSpecificUser($mikrotikConfig, $username) {
-    try {
-        $mikrotik = new MikroTikHotspotManagerFixed(
-            $mikrotikConfig['host'],
-            $mikrotikConfig['username'],
-            $mikrotikConfig['password'],
-            $mikrotikConfig['port']
-        );
-        
-        return $mikrotik->debugUser($username);
-    } catch (Exception $e) {
-        return [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'username' => $username,
-            'error' => $e->getMessage()
-        ];
-    }
-}
-
-/**
- * NOVA: Função para testar múltiplas operações
- */
-function runComprehensiveTest($mikrotikConfig) {
-    $results = [
-        'timestamp' => date('Y-m-d H:i:s'),
-        'tests' => []
-    ];
-    
-    // Teste 1: Conexão
-    $results['tests']['connection'] = testMikroTikRawParser($mikrotikConfig);
-    
-    // Teste 2: Saúde do sistema
-    $results['tests']['health'] = checkSystemHealth($mikrotikConfig);
-    
-    // Teste 3: Diagnóstico completo
-    $results['tests']['diagnostic'] = runFullDiagnostic($mikrotikConfig);
-    
-    // Teste 4: Criação e remoção de usuário de teste
-    try {
-        $testUsername = 'teste-' . rand(100, 999);
-        $testPassword = rand(1000, 9999);
-        
-        $mikrotik = new MikroTikHotspotManagerFixed(
-            $mikrotikConfig['host'],
-            $mikrotikConfig['username'],
-            $mikrotikConfig['password'],
-            $mikrotikConfig['port']
-        );
-        
-        $mikrotik->connect();
-        
-        // Criar usuário de teste
-        $createResult = $mikrotik->createHotspotUser($testUsername, $testPassword);
-        
-        if ($createResult) {
-            // Testar remoção
-            $removeResult = $mikrotik->removeHotspotUser($testUsername);
-            
-            $results['tests']['create_remove'] = [
-                'success' => $removeResult,
-                'test_username' => $testUsername,
-                'created' => $createResult,
-                'removed' => $removeResult
-            ];
-        } else {
-            $results['tests']['create_remove'] = [
-                'success' => false,
-                'error' => 'Falha na criacao do usuario de teste'
-            ];
-        }
-        
-        $mikrotik->disconnect();
-        
-    } catch (Exception $e) {
-        $results['tests']['create_remove'] = [
-            'success' => false,
-            'error' => $e->getMessage()
-        ];
-    }
-    
-    // Calcular score geral
-    $totalTests = count($results['tests']);
-    $successfulTests = 0;
-    
-    foreach ($results['tests'] as $test) {
-        if (isset($test['success']) && $test['success']) {
-            $successfulTests++;
-        }
-    }
-    
-    $results['score'] = [
-        'total' => $totalTests,
-        'successful' => $successfulTests,
-        'percentage' => round(($successfulTests / $totalTests) * 100, 2)
-    ];
-    
-    return $results;
-}
-
-/**
- * COMENTÁRIOS FINAIS:
- * 
- * CORREÇÕES IMPLEMENTADAS NA VERSÃO 3.1:
- * 
- * 1. ✅ TIMEOUT AUMENTADO: De 5s para 10s para operações mais lentas
- * 2. ✅ MÚLTIPLAS TENTATIVAS DE REMOÇÃO: 4 métodos diferentes
- * 3. ✅ VALIDAÇÃO PÓS-REMOÇÃO: Verifica se usuário foi realmente removido
- * 4. ✅ LOGS DETALHADOS: Debug completo de cada operação
- * 5. ✅ FALLBACK ROBUSTO: Métodos alternativos quando um falha
- * 6. ✅ PARSER MELHORADO: Método 4 adicionado para mais robustez
- * 7. ✅ HEALTH CHECK: Monitoramento da saúde do sistema
- * 8. ✅ REMOÇÃO EM LOTE: Para operações eficientes
- * 9. ✅ TESTE ESPECÍFICO: Função dedicada para testar remoções
- * 10. ✅ MÁXIMAS ITERAÇÕES: Aumentadas para lidar com respostas grandes
- * 
- * MÉTODOS DE REMOÇÃO (em ordem de tentativa):
- * 1. Por ID do usuário (método preferido)
- * 2. Por nome usando filtro where (?name=)
- * 3. Por nome usando comando find
- * 4. Relistagem e remoção por ID atualizado
- * 
- * USO RECOMENDADO:
- * 1. Substitua completamente o arquivo mikrotik_manager.php
- * 2. Teste usando test_removal.php
- * 3. Monitore logs em logs/hotel_system.log
- * 4. Use as funções de health check para monitoramento
- * 
- * COMPATIBILIDADE:
- * ✅ 100% compatível com o sistema existente
- * ✅ Todas as funções originais mantidas
- * ✅ Novas funcionalidades opcionais
- * ✅ Logs melhorados sem quebrar funcionalidade
- */
 
 ?>
