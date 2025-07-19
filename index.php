@@ -900,11 +900,11 @@ class HotelSystemV43 {
     }
     
     private function generateSimpleUsername($roomNumber) {
-        return 'q' . preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber) . '-' . rand(10, 99);
+        return '' . preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber) . '-' . rand(10, 99);
     }
     
     private function generateSimplePassword() {
-        return rand(1000, 9999);
+        return rand(100, 999);
     }
     
     private function calculateTimeLimit($checkoutDate) {
