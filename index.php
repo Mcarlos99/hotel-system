@@ -1968,69 +1968,94 @@ $flashMessages = FlashMessages::get();
         <div class="main-content">
             <!-- Flash Messages -->
             <?php if (!empty($flashMessages)): ?>
-                <div class="flash-messages">
-                    <?php foreach ($flashMessages as $flash): ?>
-                        <div class="flash-message flash-<?php echo $flash['type']; ?> <?php echo (isset($flash['data']) && (isset($flash['data']['username']) || isset($flash['data']['guest_name']))) ? 'persistent' : ''; ?>">
-                            <button class="flash-close" onclick="this.parentElement.style.display='none'">&times;</button>
-                            <?php echo htmlspecialchars($flash['message']); ?>
-                            
-                            <?php if (isset($flash['data']) && is_array($flash['data'])): ?>
-                                <?php if ($flash['type'] === 'success' && isset($flash['data']['username'])): ?>
-                                    <!-- Exibir credenciais geradas -->
-                                    <div class="credentials-display">
-                                        <h3>🎉 Credenciais Geradas!</h3>
-                                        <div class="credential-pair">
-                                            <div class="credential-box" onclick="copyToClipboard('<?php echo $flash['data']['username']; ?>')">
-                                                <div>👤 USUÁRIO</div>
-                                                <div class="credential-value"><?php echo htmlspecialchars($flash['data']['username']); ?></div>
-                                            </div>
-                                            <div class="credential-box" onclick="copyToClipboard('<?php echo $flash['data']['password']; ?>')">
-                                                <div>🔒 SENHA</div>
-                                                <div class="credential-value"><?php echo htmlspecialchars($flash['data']['password']); ?></div>
-                                            </div>
-                                        </div>
-                                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
-                                            <p><strong>📊 Detalhes da Operação:</strong></p>
-                                            <p>⏱️ Tempo: <?php echo $flash['data']['response_time']; ?>ms</p>
-                                            <p>📡 MikroTik: <?php echo $flash['data']['mikrotik_message']; ?></p>
-                                            <p>🔄 Sincronização: <?php echo strtoupper($flash['data']['sync_status'] ?? 'unknown'); ?></p>
-                                            <p>🏷️ Perfil: <?php echo htmlspecialchars($flash['data']['profile'] ?? 'N/A'); ?></p>
-                                            <p>📅 Válido até: <?php echo date('d/m/Y', strtotime($flash['data']['valid_until'] ?? 'now')); ?></p>
-                                        </div>
-                                        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-                                            <p style="font-size: 0.9em; margin: 0;">
-                                                <strong>💡 Dica:</strong> Clique nos campos acima para copiar automaticamente. 
-                                                Esta mensagem fica visível até você fechá-la manualmente.
-                                            </p>
-                                        </div>
-                                    </div>
-                                <?php elseif ($flash['type'] === 'success' && isset($flash['data']['guest_name'])): ?>
-                                    <!-- Exibir resultado da remoção -->
-                                    <div class="removal-display">
-                                        <h3>🗑️ Acesso Removido com Sucesso!</h3>
-                                        <div class="removal-details">
-                                            <h4>Detalhes da Remoção:</h4>
-                                            <p><strong>Hóspede:</strong> <?php echo htmlspecialchars($flash['data']['guest_name']); ?></p>
-                                            <p><strong>Quarto:</strong> <?php echo htmlspecialchars($flash['data']['room_number']); ?></p>
-                                            <p><strong>Usuário:</strong> <?php echo htmlspecialchars($flash['data']['username']); ?></p>
-                                            <p><strong>Banco de Dados:</strong> <?php echo $flash['data']['database_success'] ? '✅ Removido' : '❌ Erro'; ?></p>
-                                            <p><strong>MikroTik:</strong> <?php echo $flash['data']['mikrotik_success'] ? '✅ Removido' : '❌ Erro'; ?></p>
-                                            <p><strong>Mensagem MikroTik:</strong> <?php echo htmlspecialchars($flash['data']['mikrotik_message']); ?></p>
-                                            <p><strong>Tempo de Resposta:</strong> <?php echo $flash['data']['response_time']; ?>ms</p>
-                                            <p><strong>Data/Hora:</strong> <?php echo $flash['data']['timestamp']; ?></p>
-                                        </div>
-                                        <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
-                                            <p style="font-size: 0.9em; margin: 0;">
-                                                <strong>ℹ️ Informação:</strong> Esta mensagem permanece visível até ser fechada manualmente.
-                                            </p>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endif; ?>
+            <div class="flash-messages">
+            <?php foreach ($flashMessages as $flash): ?>
+            <div class="flash-message flash-<?php echo $flash['type']; ?> <?php echo (isset($flash['data']) && (isset($flash['data']['username']) || isset($flash['data']['guest_name']))) ? 'persistent' : ''; ?>">
+                <button class="flash-close" onclick="this.parentElement.style.display='none'">&times;</button>
+                <?php echo htmlspecialchars($flash['message']); ?>
+                
+                <?php if (isset($flash['data']) && is_array($flash['data'])): ?>
+                    <?php 
+                    // CORREÇÃO: Verificar se é uma operação de CRIAÇÃO (tem username E password)
+                    $isCredentialCreation = ($flash['type'] === 'success' && 
+                                           isset($flash['data']['username']) && 
+                                           isset($flash['data']['password']) &&
+                                           !empty($flash['data']['password']));
+                    
+                    // CORREÇÃO: Verificar se é uma operação de REMOÇÃO (tem guest_name mas NÃO tem password)
+                    $isUserRemoval = ($flash['type'] === 'success' && 
+                                    isset($flash['data']['guest_name']) && 
+                                    !isset($flash['data']['password']));
+                    ?>
+                    
+                    <?php if ($isCredentialCreation): ?>
+                        <!-- Exibir credenciais geradas -->
+                        <div class="credentials-display">
+                            <h3>🎉 Credenciais Geradas!</h3>
+                            <div class="credential-pair">
+                                <div class="credential-box" onclick="copyToClipboard('<?php echo htmlspecialchars($flash['data']['username']); ?>')">
+                                    <div>👤 USUÁRIO</div>
+                                    <div class="credential-value"><?php echo htmlspecialchars($flash['data']['username']); ?></div>
+                                </div>
+                                <div class="credential-box" onclick="copyToClipboard('<?php echo htmlspecialchars($flash['data']['password']); ?>')">
+                                    <div>🔒 SENHA</div>
+                                    <div class="credential-value"><?php echo htmlspecialchars($flash['data']['password']); ?></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
+                                <p><strong>📊 Detalhes da Operação:</strong></p>
+                                <p>⏱️ Tempo: <?php echo $flash['data']['response_time'] ?? 'N/A'; ?>ms</p>
+                                <p>📡 MikroTik: <?php echo htmlspecialchars($flash['data']['mikrotik_message'] ?? 'N/A'); ?></p>
+                                <p>🔄 Sincronização: <?php echo strtoupper($flash['data']['sync_status'] ?? 'unknown'); ?></p>
+                                <p>🏷️ Perfil: <?php echo htmlspecialchars($flash['data']['profile'] ?? 'N/A'); ?></p>
+                                <p>📅 Válido até: <?php echo isset($flash['data']['valid_until']) ? date('d/m/Y', strtotime($flash['data']['valid_until'])) : 'N/A'; ?></p>
+                            </div>
+                            <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                                <p style="font-size: 0.9em; margin: 0;">
+                                    <strong>💡 Dica:</strong> Clique nos campos acima para copiar automaticamente. 
+                                    Esta mensagem fica visível até você fechá-la manualmente.
+                                </p>
+                            </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+                        
+                    <?php elseif ($isUserRemoval): ?>
+                        <!-- Exibir resultado da remoção -->
+                        <div class="removal-display">
+                            <h3>🗑️ Acesso Removido com Sucesso!</h3>
+                            <div class="removal-details">
+                                <h4>Detalhes da Remoção:</h4>
+                                <p><strong>Hóspede:</strong> <?php echo htmlspecialchars($flash['data']['guest_name']); ?></p>
+                                <p><strong>Quarto:</strong> <?php echo htmlspecialchars($flash['data']['room_number'] ?? 'N/A'); ?></p>
+                                <p><strong>Usuário:</strong> <?php echo htmlspecialchars($flash['data']['username'] ?? 'N/A'); ?></p>
+                                <p><strong>Banco de Dados:</strong> <?php echo ($flash['data']['database_success'] ?? false) ? '✅ Removido' : '❌ Erro'; ?></p>
+                                <p><strong>MikroTik:</strong> <?php echo ($flash['data']['mikrotik_success'] ?? false) ? '✅ Removido' : '❌ Erro'; ?></p>
+                                <p><strong>Mensagem MikroTik:</strong> <?php echo htmlspecialchars($flash['data']['mikrotik_message'] ?? 'N/A'); ?></p>
+                                <p><strong>Tempo de Resposta:</strong> <?php echo $flash['data']['response_time'] ?? 'N/A'; ?>ms</p>
+                                <p><strong>Data/Hora:</strong> <?php echo $flash['data']['timestamp'] ?? date('Y-m-d H:i:s'); ?></p>
+                            </div>
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <p style="font-size: 0.9em; margin: 0;">
+                                    <strong>ℹ️ Informação:</strong> Esta mensagem permanece visível até ser fechada manualmente.
+                                </p>
+                            </div>
+                        </div>
+                        
+                    <?php elseif (isset($flash['data']) && !empty($flash['data'])): ?>
+                        <!-- Dados de debug/diagnóstico -->
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 15px;">
+                            <details>
+                                <summary style="cursor: pointer; font-weight: bold;">📋 Dados Técnicos (Clique para expandir)</summary>
+                                <pre style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px; overflow-x: auto;">
+<?php echo htmlspecialchars(json_encode($flash['data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?>
+                                </pre>
+                            </details>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
             
             <!-- Formulário de Geração -->
             <div class="section">
