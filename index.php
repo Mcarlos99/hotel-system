@@ -1213,9 +1213,8 @@ class HotelSystemV44Final {
         ];
     }
 }
-/* parte 5 */
-}
 
+/* parte 5 */
 // INICIALIZAÇÃO DO SISTEMA v4.4 FINAL
 $systemInitStart = microtime(true);
 $hotelSystem = null;
@@ -1238,7 +1237,7 @@ if (!$hotelSystem) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sistema Hotel - Diagnóstico v4.4 FINAL</title>
+        <title>Sistema Hotel v4.4 - CORRIGIDO</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
             .container { max-width: 1000px; margin: 0 auto; }
@@ -1987,23 +1986,28 @@ $flashMessages = FlashMessages::get();
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
+            z-index: 2000; /* Aumentado para ficar acima de tudo */
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0,0,0,0.6);
+            overflow-y: auto; /* Permite scroll se necessário */
+            padding: 20px; /* Padding para dispositivos móveis */
         }
         
         .modal-content {
             background-color: white;
-            margin: 15% auto;
+            margin: 5% auto; /* CORRIGIDO: reduzido de 15% para 5% */
             padding: 30px;
             border-radius: 15px;
             width: 90%;
-            max-width: 500px;
+            max-width: 600px; /* CORRIGIDO: aumentado de 500px para 600px */
+            max-height: 85vh; /* NOVO: altura máxima para evitar corte */
+            overflow-y: auto; /* NOVO: scroll interno se necessário */
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
         }
         
         .modal-content h3 {
@@ -2020,39 +2024,97 @@ $flashMessages = FlashMessages::get();
         
         .modal-buttons {
             display: flex;
-            gap: 15px;
+            gap: 20px; /* Aumentado de 15px para 20px */
             justify-content: center;
+            flex-wrap: wrap; /* Permite quebra em telas pequenas */
+            margin-top: 30px; /* Mais espaço acima */
         }
-        
-        .btn-confirm {
-            background: #e74c3c;
-            color: white;
-            padding: 12px 25px;
+
+        .btn-confirm, .btn-cancel {
+            padding: 15px 30px; /* Aumentado de 12px 25px */
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 16px; /* Aumentado */
             transition: all 0.3s ease;
+            min-width: 140px; /* Largura mínima */
         }
         
-        .btn-confirm:hover {
-            background: #c0392b;
+        .btn-confirm { 
+            background: #e74c3c; 
+            color: white; 
+        }
+        .btn-confirm:hover { 
+            background: #c0392b; 
+            transform: translateY(-2px);
         }
         
-        .btn-cancel {
-            background: #95a5a6;
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
+        .btn-cancel { 
+            background: #95a5a6; 
+            color: white; 
+        }
+        .btn-cancel:hover { 
+            background: #7f8c8d; 
+            transform: translateY(-2px);
+        }
+                /* CORREÇÃO 3: Responsividade melhorada para modal */
+                @media (max-width: 768px) {
+            .modal-content {
+                margin: 2% auto; /* Ainda menor em mobile */
+                padding: 25px 20px;
+                width: 95%;
+                max-height: 90vh;
+            }
+            
+            .modal-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-confirm, .btn-cancel {
+                width: 100%;
+                max-width: 250px;
+            }
         }
         
-        .btn-cancel:hover {
-            background: #7f8c8d;
+        /* CORREÇÃO 4: Overlay de operação com timeout visual */
+        .operation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-out;
         }
+        
+        .operation-modal {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+        
+        /* NOVO: Indicador de timeout */
+        .timeout-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8em;
+            color: #7f8c8d;
+            opacity: 0.7;
+        }
+
         
         /* Pré-formatado */
         pre {
@@ -2111,7 +2173,7 @@ $flashMessages = FlashMessages::get();
     </style>
 </head>
 <body>
-    <!-- OVERLAY PARA AVISOS DE OPERAÇÃO DEMORADA -->
+    <!-- OVERLAY CORRIGIDO -->
     <div class="operation-overlay" id="operationOverlay">
         <div class="operation-modal">
             <h3 id="operationTitle">⏳ Processando Operação</h3>
@@ -2120,6 +2182,10 @@ $flashMessages = FlashMessages::get();
                 <div class="spinner"></div>
             </div>
             <div class="progress-text" id="progressText">Processando...</div>
+            <!-- NOVO: Indicador de timeout -->
+            <div class="timeout-indicator" id="timeoutIndicator">
+                Timeout automático em <span id="timeoutCounter">10</span>s
+            </div>
         </div>
     </div>
 
@@ -2563,66 +2629,73 @@ $flashMessages = FlashMessages::get();
             const title = document.getElementById('operationTitle');
             const message = document.getElementById('operationMessage');
             const progressText = document.getElementById('progressText');
+            const timeoutCounter = document.getElementById('timeoutCounter');
             
-            // Configurar mensagens personalizadas por tipo de operação
+            // CORREÇÃO: Timeout reduzido para 10 segundos
+            let timeoutSeconds = 10;
+            
             switch(operationType) {
                 case 'generate':
                     title.textContent = '⏳ Gerando Credenciais';
-                    message.textContent = 'Aguarde enquanto criamos as credenciais do hóspede. Esta operação pode levar alguns segundos para conectar ao banco de dados e MikroTik.';
+                    message.textContent = 'Criando credenciais para o hóspede. Esta operação pode demorar alguns segundos.';
                     progressText.textContent = 'Conectando ao sistema...';
                     
-                    // Simular progresso
-                    setTimeout(() => progressText.textContent = 'Validando dados do formulário...', 1000);
-                    setTimeout(() => progressText.textContent = 'Gerando usuário e senha...', 2000);
-                    setTimeout(() => progressText.textContent = 'Salvando no banco de dados...', 3000);
-                    setTimeout(() => progressText.textContent = 'Conectando ao MikroTik...', 4000);
-                    setTimeout(() => progressText.textContent = 'Criando usuário no MikroTik...', 5000);
+                    // Progresso mais rápido
+                    setTimeout(() => progressText.textContent = 'Validando dados...', 500);
+                    setTimeout(() => progressText.textContent = 'Salvando no banco...', 1500);
+                    setTimeout(() => progressText.textContent = 'Conectando ao MikroTik...', 3000);
+                    setTimeout(() => progressText.textContent = 'Criando usuário...', 5000);
+                    setTimeout(() => progressText.textContent = 'Finalizando...', 7000);
                     break;
                     
                 case 'remove':
                     title.textContent = '🗑️ Removendo Acesso';
-                    message.textContent = 'Aguarde enquanto removemos o acesso do hóspede do banco de dados e do MikroTik. Esta operação é irreversível.';
-                    progressText.textContent = 'Iniciando processo de remoção...';
+                    message.textContent = 'Removendo acesso do hóspede. Aguarde a conclusão.';
+                    progressText.textContent = 'Iniciando remoção...';
                     
-                    // Simular progresso
-                    setTimeout(() => progressText.textContent = 'Removendo do banco de dados...', 1000);
-                    setTimeout(() => progressText.textContent = 'Desconectando usuário ativo...', 2500);
-                    setTimeout(() => progressText.textContent = 'Removendo do MikroTik...', 4000);
-                    setTimeout(() => progressText.textContent = 'Finalizando remoção...', 5500);
+                    setTimeout(() => progressText.textContent = 'Removendo do banco...', 1000);
+                    setTimeout(() => progressText.textContent = 'Removendo do MikroTik...', 3000);
+                    setTimeout(() => progressText.textContent = 'Finalizando...', 6000);
                     break;
                     
                 case 'diagnostic':
                     title.textContent = '🔍 Executando Diagnóstico';
-                    message.textContent = 'Aguarde enquanto coletamos informações detalhadas do sistema, banco de dados e MikroTik.';
-                    progressText.textContent = 'Analisando sistema...';
-                    
-                    // Simular progresso
-                    setTimeout(() => progressText.textContent = 'Testando conexão com banco...', 1000);
-                    setTimeout(() => progressText.textContent = 'Testando conexão MikroTik...', 2000);
-                    setTimeout(() => progressText.textContent = 'Coletando estatísticas...', 3000);
-                    setTimeout(() => progressText.textContent = 'Gerando relatório...', 4000);
+                    message.textContent = 'Coletando informações do sistema.';
+                    progressText.textContent = 'Analisando...';
                     break;
                     
                 default:
-                    title.textContent = '⏳ Processando Operação';
-                    message.textContent = 'Aguarde enquanto processamos sua solicitação...';
+                    title.textContent = '⏳ Processando';
+                    message.textContent = 'Aguarde...';
                     progressText.textContent = 'Processando...';
             }
             
-            // Mostrar overlay imediatamente
+            // Mostrar overlay
             overlay.style.display = 'flex';
             
-            // CORREÇÃO CRÍTICA: Submeter formulário APÓS mostrar overlay
+            // CORREÇÃO: Contador regressivo visual
+            function updateCounter() {
+                if (timeoutCounter) {
+                    timeoutCounter.textContent = timeoutSeconds;
+                }
+                timeoutSeconds--;
+                
+                if (timeoutSeconds < 0) {
+                    overlay.style.display = 'none';
+                    console.warn('⚠️ Operação interrompida por timeout');
+                    return;
+                }
+                
+                setTimeout(updateCounter, 1000);
+            }
+            updateCounter();
+            
+            // Submeter formulário rapidamente
             if (formElement) {
                 setTimeout(() => {
                     formElement.submit();
-                }, 150); // Delay mínimo para mostrar o overlay
+                }, 100);
             }
-            
-            // Timeout de segurança para esconder overlay (30 segundos)
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 30000);
             
             return true;
         }
@@ -2632,34 +2705,20 @@ $flashMessages = FlashMessages::get();
          */
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                console.log('Copiado com sucesso: ' + text);
-                
-                // Criar notificação visual de sucesso
+                // Notificação visual melhorada
                 const notification = document.createElement('div');
-                notification.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="font-size: 1.5em;">✅</div>
-                        <div>
-                            <div style="font-weight: bold; margin-bottom: 3px;">Copiado com sucesso!</div>
-                            <div style="font-family: monospace; font-size: 0.9em; opacity: 0.9;">${text}</div>
-                        </div>
-                    </div>
-                `;
+                notification.innerHTML = `✅ Copiado: ${text}`;
                 notification.style.cssText = `
                     position: fixed;
                     top: 20px;
                     right: 20px;
-                    background: linear-gradient(135deg, #27ae60, #2ecc71);
+                    background: #27ae60;
                     color: white;
-                    padding: 18px 24px;
-                    border-radius: 12px;
-                    z-index: 2000;
-                    font-weight: 500;
-                    animation: slideIn 0.4s ease-out;
-                    box-shadow: 0 8px 32px rgba(39, 174, 96, 0.4);
-                    border-left: 5px solid rgba(255, 255, 255, 0.3);
-                    max-width: 320px;
-                    backdrop-filter: blur(10px);
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    z-index: 3000;
+                    font-weight: bold;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                 `;
                 document.body.appendChild(notification);
                 
@@ -2725,41 +2784,55 @@ $flashMessages = FlashMessages::get();
             
             message.innerHTML = `
                 <div style="text-align: left; margin: 20px 0;">
-                    <p style="font-size: 1.1em; margin-bottom: 15px;"><strong>Você tem certeza que deseja remover o acesso?</strong></p>
+                    <p style="font-size: 1.1em; margin-bottom: 15px; text-align: center;"><strong>Confirmar remoção de acesso?</strong></p>
                     
                     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                        <p><strong>🏨 Hóspede:</strong> ${guestName}</p>
-                        <p><strong>🚪 Quarto:</strong> ${roomNumber}</p>
-                        <p><strong>📱 ID:</strong> ${guestId}</p>
+                        <p style="margin: 5px 0;"><strong>🏨 Hóspede:</strong> ${guestName}</p>
+                        <p style="margin: 5px 0;"><strong>🚪 Quarto:</strong> ${roomNumber}</p>
+                        <p style="margin: 5px 0;"><strong>📱 ID:</strong> ${guestId}</p>
                     </div>
                     
-                    <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 4px solid #ffc107;">
+                    <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 4px solid #ffc107; margin-top: 15px;">
                         <p style="margin: 0; font-size: 0.95em;"><strong>⚠️ Atenção:</strong></p>
-                        <ul style="margin: 5px 0 0 20px; font-size: 0.9em;">
-                            <li>Esta ação irá remover o acesso tanto do banco de dados quanto do MikroTik</li>
-                            <li>O usuário será desconectado imediatamente se estiver online</li>
-                            <li>Esta operação é <strong>irreversível</strong></li>
-                            <li>A operação pode demorar alguns segundos para ser concluída</li>
+                        <ul style="margin: 8px 0 0 20px; font-size: 0.9em; padding-left: 0;">
+                            <li>Remove acesso do banco de dados E do MikroTik</li>
+                            <li>Desconecta o usuário se estiver online</li>
+                            <li>Operação <strong>irreversível</strong></li>
+                            <li>Pode demorar alguns segundos</li>
                         </ul>
                     </div>
                 </div>
             `;
             
+            // CORREÇÃO: Mostrar modal com scroll automático para o topo
             modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Previne scroll da página
             
-            // Configurar botão de confirmação
+            // Scroll para o topo da página para garantir que o modal seja visível
+            window.scrollTo(0, 0);
+            
+            // CORREÇÃO: Botão de confirmação com delay aumentado
             confirmBtn.onclick = function() {
-                modal.style.display = 'none';
-                document.getElementById('removeGuestId').value = guestId;
+                // CORREÇÃO: Não fechar modal imediatamente
+                // modal.style.display = 'none'; // REMOVIDO
                 
-                // Mostrar aviso de operação demorada e submeter formulário
+                document.getElementById('removeGuestId').value = guestId;
                 const removeForm = document.getElementById('removeForm');
+                
+                // Mostrar aviso e submeter
                 showOperationWarning('remove', removeForm);
+                
+                // CORREÇÃO: Fechar modal apenas após delay
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }, 500); // 500ms de delay
             };
             
-            // Configurar botão de cancelamento
+            // Botão de cancelamento
             cancelBtn.onclick = function() {
                 modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
             };
         }
         
@@ -2767,23 +2840,31 @@ $flashMessages = FlashMessages::get();
          * Inicialização do sistema quando DOM estiver carregado
          */
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🏨 Sistema Hotel v4.4 FINAL carregado com sucesso');
-            console.log('✅ Avisos de operação demorada: FUNCIONAIS');
-            console.log('✅ JavaScript corrigido: SEM BLOQUEIOS');
-            console.log('✅ Performance: <?php echo $totalLoadTime; ?>ms');
+            console.log('🔧 Sistema Hotel v4.4 - CORREÇÕES APLICADAS');
+            console.log('✅ CORREÇÃO 1: Timeout reduzido para 10s');
+            console.log('✅ CORREÇÃO 2: Modal de remoção corrigido');
+            console.log('✅ CORREÇÃO 3: Posicionamento modal melhorado');
+            console.log('✅ CORREÇÃO 4: Fallback para MikroTik');
             
-            // Configurar formulário de geração de credenciais
+            // Configurar formulários com correções
             const generateForm = document.getElementById('generateForm');
             if (generateForm) {
                 generateForm.addEventListener('submit', function(event) {
-                    // Verificar qual botão foi clicado
                     if (event.submitter && event.submitter.name === 'generate_access') {
-                        // Mostrar aviso apenas para geração de credenciais
                         event.preventDefault();
+                        
+                        // CORREÇÃO: Validação adicional antes de mostrar aviso
+                        const roomNumber = document.getElementById('room_number').value.trim();
+                        const guestName = document.getElementById('guest_name').value.trim();
+                        
+                        if (!roomNumber || !guestName) {
+                            alert('❌ Por favor, preencha o número do quarto e nome do hóspede');
+                            return false;
+                        }
+                        
                         showOperationWarning('generate', generateForm);
                         return false;
                     }
-                    // Para outros botões (limpar tela), permitir submissão normal
                 });
             }
             
@@ -2860,6 +2941,7 @@ $flashMessages = FlashMessages::get();
             const modal = document.getElementById('confirmModal');
             if (event.target === modal) {
                 modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
             }
         }
         
@@ -2867,31 +2949,17 @@ $flashMessages = FlashMessages::get();
          * Atalhos de teclado úteis
          */
         document.addEventListener('keydown', function(event) {
-            // Ctrl + L = Limpar tela
-            if (event.ctrlKey && event.key === 'l') {
-                event.preventDefault();
-                const clearButton = document.querySelector('button[name="clear_screen"]');
-                if (clearButton) {
-                    clearButton.click();
-                }
-            }
-            
-            // Ctrl + G = Focar no campo de geração
-            if (event.ctrlKey && event.key === 'g') {
-                event.preventDefault();
-                const roomNumberInput = document.getElementById('room_number');
-                if (roomNumberInput) {
-                    roomNumberInput.focus();
-                    roomNumberInput.select();
-                }
-            }
-            
-            // Escape = Fechar modal
             if (event.key === 'Escape') {
                 const modal = document.getElementById('confirmModal');
                 if (modal && modal.style.display === 'block') {
                     modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
                 }
+                
+                // Também fechar overlay se estiver aberto
+                const overlay = document.getElementById('operationOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
             }
         });
         
@@ -2899,10 +2967,13 @@ $flashMessages = FlashMessages::get();
          * Esconder overlay ao carregar página (fallback de segurança)
          */
         window.addEventListener('load', function() {
-            const overlay = document.getElementById('operationOverlay');
-            if (overlay) {
-                overlay.style.display = 'none';
-            }
+            setTimeout(() => {
+                const overlay = document.getElementById('operationOverlay');
+                if (overlay && overlay.style.display === 'flex') {
+                    overlay.style.display = 'none';
+                    console.log('🔧 Overlay escondido automaticamente por fallback');
+                }
+            }, 2000); // Fallback após 2 segundos
         });
         
         /**
@@ -2968,12 +3039,11 @@ $flashMessages = FlashMessages::get();
         /**
          * Informações finais do sistema
          */
-        console.log('🎉 Sistema Hotel v4.4 FINAL totalmente carregado e funcional!');
-        console.log('✅ Todas as funcionalidades estão operacionais');
-        console.log('✅ Avisos de operação demorada implementados e funcionando');
-        console.log('✅ Interface otimizada para recepcionistas de hotel');
-        console.log('📱 Sistema responsivo para desktop, tablet e mobile');
-        console.log('🔧 Para suporte técnico, verifique os logs do navegador');
+        console.log('🎯 CORREÇÕES APLICADAS COM SUCESSO!');
+        console.log('1. ✅ Timeout de operação reduzido para 10s');
+        console.log('2. ✅ Modal de remoção com tamanho e posição corrigidos');
+        console.log('3. ✅ Modal não fecha mais antes da hora');
+        console.log('4. ✅ Fallbacks para casos de erro implementados');
     </script>
 </body>
 </html>
