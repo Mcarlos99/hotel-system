@@ -1,37 +1,61 @@
 <?php
 /**
- * Sistema Hotel v4.4 - COM AVISOS DE PROCESSAMENTO
- * PARTE 1/6 - Cabeçalho, Includes e Classes Básicas
+ * index.php - Sistema Hotel v4.3 - COM PRG (POST-Redirect-GET)
+ * 
+ * VERSÃO: 4.3 - POST-Redirect-GET Pattern
+ * DATA: 2025-01-18
+ * 
+ * CORREÇÕES v4.3:
+ * ✅ Implementação do padrão PRG (POST-Redirect-GET)
+ * ✅ Prevenção de resubmissão de formulários
+ * ✅ Mensagens via SESSION para persistir após redirect
+ * ✅ Botão "Limpar Tela" funcional
+ * ✅ URLs limpas após operações
+ * ✅ Melhor UX com confirmações
+ * ✅ Histórico de operações
+ * ✅ Flash messages otimizadas
  */
 
+// Configurações de erro e encoding otimizadas
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 ini_set('max_execution_time', 120);
 session_start();
 
+// Encoding UTF-8 otimizado
 mb_internal_encoding('UTF-8');
 mb_http_output('UTF-8');
 ini_set('default_charset', 'UTF-8');
 
+// Headers de performance
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 
-// Verificar arquivos necessários
+// Verificar se config.php existe
 if (!file_exists('config.php')) {
-    die("<div style='font-family: Arial; background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px; border-left: 5px solid #e74c3c;'>
+    die("
+    <div style='font-family: Arial; background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px; border-left: 5px solid #e74c3c;'>
         <h3>❌ Erro Crítico</h3>
         <p><strong>Arquivo config.php não encontrado!</strong></p>
+        <p><strong>Solução:</strong> Verifique se o arquivo config.php está na mesma pasta do index.php</p>
         <p><strong>Caminho esperado:</strong> " . dirname(__FILE__) . "/config.php</p>
-    </div>");
+    </div>
+    ");
 }
 
+// Incluir configurações
 require_once 'config.php';
 
+// Verificar se mikrotik_manager.php existe
 if (!file_exists('mikrotik_manager.php')) {
-    die("<div style='font-family: Arial; background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px; border-left: 5px solid #e74c3c;'>
+    die("
+    <div style='font-family: Arial; background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px; border-left: 5px solid #e74c3c;'>
         <h3>❌ Erro Crítico</h3>
         <p><strong>Arquivo mikrotik_manager.php não encontrado!</strong></p>
-    </div>");
+        <p><strong>Solução:</strong> Verifique se o arquivo mikrotik_manager.php está na mesma pasta</p>
+        <p><strong>Caminho esperado:</strong> " . dirname(__FILE__) . "/mikrotik_manager.php</p>
+    </div>
+    ");
 }
 
 require_once 'mikrotik_manager.php';
@@ -39,22 +63,24 @@ require_once 'mikrotik_manager.php';
 // Logger simples se HotelLogger não existir
 if (!class_exists('HotelLogger')) {
     class SimpleLogger {
-        public function info($message, $context = []) { 
-            error_log("[HOTEL_INFO] " . $message); 
+        public function info($message, $context = []) {
+            error_log("[HOTEL_INFO] " . $message);
         }
-        public function error($message, $context = []) { 
-            error_log("[HOTEL_ERROR] " . $message); 
+        public function error($message, $context = []) {
+            error_log("[HOTEL_ERROR] " . $message);
         }
-        public function warning($message, $context = []) { 
-            error_log("[HOTEL_WARNING] " . $message); 
+        public function warning($message, $context = []) {
+            error_log("[HOTEL_WARNING] " . $message);
         }
-        public function debug($message, $context = []) { 
-            error_log("[HOTEL_DEBUG] " . $message); 
+        public function debug($message, $context = []) {
+            error_log("[HOTEL_DEBUG] " . $message);
         }
     }
 }
 
-// Classe Flash Messages para PRG
+/**
+ * Classe de Flash Messages para PRG
+ */
 class FlashMessages {
     private static $sessionKey = 'hotel_flash_messages';
     
@@ -62,6 +88,7 @@ class FlashMessages {
         if (!isset($_SESSION[self::$sessionKey])) {
             $_SESSION[self::$sessionKey] = [];
         }
+        
         $_SESSION[self::$sessionKey][] = [
             'type' => $type,
             'message' => $message,
@@ -74,28 +101,34 @@ class FlashMessages {
         if (!isset($_SESSION[self::$sessionKey])) {
             return [];
         }
+        
         $messages = $_SESSION[self::$sessionKey];
         unset($_SESSION[self::$sessionKey]);
+        
         return $messages;
     }
     
-    public static function success($message, $data = null) { 
-        self::set('success', $message, $data); 
+    public static function success($message, $data = null) {
+        self::set('success', $message, $data);
     }
-    public static function error($message, $data = null) { 
-        self::set('error', $message, $data); 
+    
+    public static function error($message, $data = null) {
+        self::set('error', $message, $data);
     }
-    public static function warning($message, $data = null) { 
-        self::set('warning', $message, $data); 
+    
+    public static function warning($message, $data = null) {
+        self::set('warning', $message, $data);
     }
-    public static function info($message, $data = null) { 
-        self::set('info', $message, $data); 
+    
+    public static function info($message, $data = null) {
+        self::set('info', $message, $data);
     }
 }
-/* PARTE 2 */
-// PARTE 2/6 - Classe HotelSystemV44 (Início e Conexões)
 
-class HotelSystemV44 {
+/**
+ * Classe do Sistema Hotel v4.3 - COM PRG
+ */
+class HotelSystemV43 {
     protected $mikrotik;
     protected $db;
     protected $logger;
@@ -114,6 +147,7 @@ class HotelSystemV44 {
         $this->dbConfig = $dbConfig;
         $this->connectionErrors = [];
         
+        // Verificar se as configurações são válidas
         if (!is_array($mikrotikConfig)) {
             $this->mikrotikConfig = ['host' => '', 'port' => 8728, 'username' => '', 'password' => ''];
         }
@@ -122,25 +156,34 @@ class HotelSystemV44 {
             $this->dbConfig = ['host' => 'localhost', 'database' => '', 'username' => '', 'password' => ''];
         }
         
+        // Logger
         if (class_exists('HotelLogger')) {
             $this->logger = new HotelLogger();
         } else {
             $this->logger = new SimpleLogger();
         }
         
-        $this->logger->info("Hotel System v4.4 com avisos de processamento iniciando...");
+        $this->logger->info("Hotel System v4.3 PRG iniciando...");
         
+        // Conectar ao banco
         $this->connectToDatabase();
+        
+        // Conectar ao MikroTik
         $this->connectToMikroTik();
         
+        // Log final
         $initTime = round((microtime(true) - $this->startTime) * 1000, 2);
-        $this->logger->info("Sistema Hotel v4.4 inicializado em {$initTime}ms");
+        $this->logger->info("Sistema Hotel v4.3 PRG inicializado em {$initTime}ms");
     }
     
+    /**
+     * Conexão robusta com banco de dados
+     */
     private function connectToDatabase() {
         try {
             $this->logger->info("Conectando ao banco de dados...");
             
+            // Verificar se MySQL está rodando
             if (!$this->isMySQLRunning()) {
                 $this->connectionErrors[] = "Serviço MySQL não está rodando";
                 $this->logger->error("MySQL não está rodando");
@@ -148,6 +191,7 @@ class HotelSystemV44 {
                 return;
             }
             
+            // Tentar conectar sem especificar banco primeiro
             $hostOnlyDsn = "mysql:host={$this->dbConfig['host']};charset=utf8mb4";
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -161,25 +205,33 @@ class HotelSystemV44 {
                 $tempDb = new PDO($hostOnlyDsn, $this->dbConfig['username'], $this->dbConfig['password'], $options);
                 $this->logger->info("Conexão MySQL estabelecida");
                 
+                // Verificar se banco existe
                 $stmt = $tempDb->prepare("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?");
                 $stmt->execute([$this->dbConfig['database']]);
                 $dbExists = $stmt->fetchColumn();
                 
                 if (!$dbExists) {
+                    // Criar banco de dados
                     $this->logger->info("Criando banco de dados: {$this->dbConfig['database']}");
                     $tempDb->exec("CREATE DATABASE `{$this->dbConfig['database']}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 }
                 
-                $tempDb = null;
+                $tempDb = null; // Fechar conexão temporária
                 
             } catch (PDOException $e) {
                 if (strpos($e->getMessage(), 'Access denied') !== false) {
+                    // Tentar com usuário root sem senha
                     $this->logger->warning("Tentando com credenciais alternativas...");
                     try {
                         $tempDb = new PDO($hostOnlyDsn, 'root', '', $options);
+                        
+                        // Criar usuário se necessário
                         $this->createDatabaseUser($tempDb);
+                        
+                        // Criar banco
                         $tempDb->exec("CREATE DATABASE IF NOT EXISTS `{$this->dbConfig['database']}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                         $tempDb = null;
+                        
                     } catch (PDOException $e2) {
                         throw new Exception("Erro de autenticação MySQL: " . $e2->getMessage());
                     }
@@ -188,10 +240,13 @@ class HotelSystemV44 {
                 }
             }
             
+            // Agora conectar ao banco específico
             $fullDsn = "mysql:host={$this->dbConfig['host']};dbname={$this->dbConfig['database']};charset=utf8mb4";
             $this->db = new PDO($fullDsn, $this->dbConfig['username'], $this->dbConfig['password'], $options);
             
             $this->logger->info("Conectado ao banco: {$this->dbConfig['database']}");
+            
+            // Criar tabelas
             $this->createTables();
             
         } catch (Exception $e) {
@@ -202,7 +257,11 @@ class HotelSystemV44 {
         }
     }
     
+    /**
+     * Verifica se MySQL está rodando
+     */
     private function isMySQLRunning() {
+        // Tentar conectar na porta 3306
         $socket = @fsockopen($this->dbConfig['host'], 3306, $errno, $errstr, 3);
         if ($socket) {
             fclose($socket);
@@ -211,6 +270,9 @@ class HotelSystemV44 {
         return false;
     }
     
+    /**
+     * Cria usuário do banco se necessário
+     */
     private function createDatabaseUser($pdo) {
         try {
             $username = $this->dbConfig['username'];
@@ -233,10 +295,14 @@ class HotelSystemV44 {
         }
     }
     
+    /**
+     * Conexão robusta com MikroTik
+     */
     private function connectToMikroTik() {
         try {
             $this->logger->info("Conectando ao MikroTik...");
             
+            // Garantir que as configurações estão definidas
             if (!isset($this->mikrotikConfig['host']) || empty($this->mikrotikConfig['host'])) {
                 $errorMsg = "Host do MikroTik não configurado";
                 $this->connectionErrors[] = $errorMsg;
@@ -261,6 +327,7 @@ class HotelSystemV44 {
                 $this->mikrotikConfig['password'] = '';
             }
             
+            // Verificar se host é acessível
             if (!$this->isMikroTikReachable()) {
                 $errorMsg = "MikroTik não acessível em {$this->mikrotikConfig['host']}:{$this->mikrotikConfig['port']}";
                 $this->connectionErrors[] = $errorMsg;
@@ -269,6 +336,7 @@ class HotelSystemV44 {
                 return;
             }
             
+            // Tentar diferentes classes MikroTik
             $mikrotikClasses = [
                 'MikroTikHotspotManagerFixed',
                 'MikroTikRawDataParser'
@@ -284,6 +352,7 @@ class HotelSystemV44 {
                             $this->mikrotikConfig['port']
                         );
                         
+                        // Testar conexão
                         if (method_exists($this->mikrotik, 'testConnection')) {
                             $testResult = $this->mikrotik->testConnection();
                             if ($testResult['success']) {
@@ -315,6 +384,9 @@ class HotelSystemV44 {
         }
     }
     
+    /**
+     * Verifica se MikroTik é acessível
+     */
     private function isMikroTikReachable() {
         if (!isset($this->mikrotikConfig['host']) || empty($this->mikrotikConfig['host'])) {
             $this->logger->warning("Host do MikroTik não configurado");
@@ -343,16 +415,17 @@ class HotelSystemV44 {
         $this->logger->warning("MikroTik não acessível - host: {$host}, porta: {$port}");
         return false;
     }
-    /* PARTE 3 */
-    // PARTE 3/6 - Criação de Tabelas e Métodos Principais
-
+    
+    /**
+     * Criação de tabelas
+     */
     protected function createTables() {
         if (!$this->db) {
             return false;
         }
         
         try {
-            // Tabela principal de hóspedes
+            // Tabela principal
             $sql = "CREATE TABLE IF NOT EXISTS hotel_guests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 room_number VARCHAR(10) NOT NULL,
@@ -373,9 +446,11 @@ class HotelSystemV44 {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             
             $this->db->exec($sql);
+            
+            // Verificar se colunas adicionais existem
             $this->addMissingColumns();
             
-            // Tabela de logs de acesso
+            // Tabela de logs
             $sql = "CREATE TABLE IF NOT EXISTS access_logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(50) NOT NULL,
@@ -395,7 +470,7 @@ class HotelSystemV44 {
             
             $this->db->exec($sql);
             
-            // Tabela de histórico de operações
+            // Tabela de histórico de operações (NOVA para PRG)
             $sql = "CREATE TABLE IF NOT EXISTS operation_history (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 operation_type ENUM('create', 'remove', 'update', 'diagnostic') NOT NULL,
@@ -421,20 +496,26 @@ class HotelSystemV44 {
         }
     }
     
+    /**
+     * Adiciona colunas que podem estar faltando
+     */
     private function addMissingColumns() {
         try {
+            // Verificar se sync_status existe
             $stmt = $this->db->query("SHOW COLUMNS FROM hotel_guests LIKE 'sync_status'");
             if ($stmt->rowCount() == 0) {
                 $this->db->exec("ALTER TABLE hotel_guests ADD COLUMN sync_status ENUM('synced', 'pending', 'failed') DEFAULT 'pending'");
                 $this->logger->info("Coluna sync_status adicionada");
             }
             
+            // Verificar se last_sync existe
             $stmt = $this->db->query("SHOW COLUMNS FROM hotel_guests LIKE 'last_sync'");
             if ($stmt->rowCount() == 0) {
                 $this->db->exec("ALTER TABLE hotel_guests ADD COLUMN last_sync TIMESTAMP NULL");
                 $this->logger->info("Coluna last_sync adicionada");
             }
             
+            // Adicionar índices se não existirem
             try {
                 $this->db->exec("ALTER TABLE hotel_guests ADD INDEX idx_sync (sync_status)");
             } catch (Exception $e) {
@@ -446,128 +527,9 @@ class HotelSystemV44 {
         }
     }
     
-    public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
-        $operationStart = microtime(true);
-        
-        try {
-            if (!$this->db) {
-                throw new Exception("Banco de dados não conectado");
-            }
-            
-            // Verificar se já existe usuário ativo no quarto
-            $stmt = $this->db->prepare("SELECT username FROM hotel_guests WHERE room_number = ? AND status = 'active' LIMIT 1");
-            $stmt->execute([$roomNumber]);
-            $existingUser = $stmt->fetch();
-            
-            if ($existingUser) {
-                throw new Exception("Já existe usuário ativo para o quarto {$roomNumber}: {$existingUser['username']}");
-            }
-            
-            // Gerar credenciais únicas
-            $username = $this->generateSimpleUsername($roomNumber);
-            $password = $this->generateSimplePassword();
-            
-            // Verificar se colunas de sync existem
-            $hasSync = $this->checkColumnExists('hotel_guests', 'sync_status');
-            
-            // Inserir no banco
-            if ($hasSync) {
-                $stmt = $this->db->prepare("
-                    INSERT INTO hotel_guests 
-                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status, sync_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'pending')
-                ");
-            } else {
-                $stmt = $this->db->prepare("
-                    INSERT INTO hotel_guests 
-                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-                ");
-            }
-            
-            $result = $stmt->execute([
-                $roomNumber, $guestName, $username, $password, 
-                $profileType, $checkinDate, $checkoutDate
-            ]);
-            
-            if (!$result) {
-                throw new Exception("Falha ao salvar no banco");
-            }
-            
-            $guestId = $this->db->lastInsertId();
-            
-            $mikrotikResult = ['success' => false, 'message' => 'MikroTik offline'];
-            
-            // Tentar criar no MikroTik se conectado
-            if ($this->mikrotik) {
-                try {
-                    $timeLimit = $this->calculateTimeLimit($checkoutDate);
-                    $mikrotikResult = $this->createInMikroTik($username, $password, $profileType, $timeLimit);
-                    
-                    if ($hasSync) {
-                        $this->updateSyncStatus($guestId, $mikrotikResult['success'] ? 'synced' : 'failed', $mikrotikResult['message']);
-                    }
-                    
-                } catch (Exception $e) {
-                    $mikrotikResult = ['success' => false, 'message' => 'Erro: ' . $e->getMessage()];
-                    
-                    if ($hasSync) {
-                        $this->updateSyncStatus($guestId, 'failed', $mikrotikResult['message']);
-                    }
-                }
-            }
-            
-            // Log da ação
-            $this->logAction($username, $roomNumber, 'created', $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null, 0, null);
-            
-            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
-            
-            $result = [
-                'success' => true,
-                'username' => $username,
-                'password' => $password,
-                'profile' => $profileType,
-                'valid_until' => $checkoutDate,
-                'bandwidth' => $this->userProfiles[$profileType]['rate_limit'] ?? '10M/2M',
-                'mikrotik_success' => $mikrotikResult['success'],
-                'mikrotik_message' => $mikrotikResult['message'],
-                'sync_status' => $mikrotikResult['success'] ? 'synced' : 'pending',
-                'response_time' => $totalTime,
-                'guest_id' => $guestId
-            ];
-            
-            // Salvar operação no histórico
-            $this->saveOperationHistory('create', [
-                'room_number' => $roomNumber,
-                'guest_name' => $guestName,
-                'profile_type' => $profileType,
-                'checkin_date' => $checkinDate,
-                'checkout_date' => $checkoutDate
-            ], $result, true, $totalTime);
-            
-            return $result;
-            
-        } catch (Exception $e) {
-            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
-            $this->logger->error("Erro ao gerar credenciais: " . $e->getMessage());
-            
-            $result = [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'response_time' => $totalTime
-            ];
-            
-            // Salvar erro no histórico
-            $this->saveOperationHistory('create', [
-                'room_number' => $roomNumber ?? null,
-                'guest_name' => $guestName ?? null,
-                'profile_type' => $profileType ?? null
-            ], $result, false, $totalTime);
-            
-            return $result;
-        }
-    }
-    
+    /**
+     * NOVA FUNCIONALIDADE: Remover acesso do hóspede
+     */
     public function removeGuestAccess($guestId) {
         $operationStart = microtime(true);
         
@@ -604,6 +566,8 @@ class HotelSystemV44 {
                 
                 if ($dbSuccess) {
                     $this->logger->info("Hóspede removido do banco de dados com sucesso");
+                    
+                    // Log da ação
                     $this->logAction($username, $roomNumber, 'removed', null, null, 0, null);
                 } else {
                     throw new Exception("Falha ao atualizar status no banco");
@@ -619,15 +583,18 @@ class HotelSystemV44 {
                 try {
                     $this->logger->info("Tentando remover do MikroTik: {$username}");
                     
+                    // Conectar se necessário
                     if (method_exists($this->mikrotik, 'connect')) {
                         $this->mikrotik->connect();
                     }
                     
+                    // Primeiro desconectar se estiver online
                     if (method_exists($this->mikrotik, 'disconnectUser')) {
                         $this->mikrotik->disconnectUser($username);
                         $this->logger->info("Usuário desconectado do MikroTik");
                     }
                     
+                    // Depois remover o usuário
                     if (method_exists($this->mikrotik, 'removeHotspotUser')) {
                         $mikrotikSuccess = $this->mikrotik->removeHotspotUser($username);
                         
@@ -643,6 +610,7 @@ class HotelSystemV44 {
                         $this->logger->warning("Método removeHotspotUser não disponível");
                     }
                     
+                    // Desconectar
                     if (method_exists($this->mikrotik, 'disconnect')) {
                         $this->mikrotik->disconnect();
                     }
@@ -662,7 +630,7 @@ class HotelSystemV44 {
             $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
             
             $result = [
-                'success' => $dbSuccess,
+                'success' => $dbSuccess, // Sucesso se pelo menos removeu do banco
                 'guest_name' => $guestName,
                 'room_number' => $roomNumber,
                 'username' => $username,
@@ -673,7 +641,7 @@ class HotelSystemV44 {
                 'timestamp' => date('Y-m-d H:i:s')
             ];
             
-            // Salvar operação no histórico
+            // NOVO: Salvar operação no histórico
             $this->saveOperationHistory('remove', [
                 'guest_id' => $guestId,
                 'username' => $username,
@@ -704,9 +672,233 @@ class HotelSystemV44 {
             return $result;
         }
     }
-    /* PARTE 4 */
-    // PARTE 4/6 - Métodos Auxiliares e de Diagnóstico
-
+    
+    /**
+     * Atualiza status de sincronização
+     */
+    private function updateSyncStatus($guestId, $syncStatus, $message = null) {
+        try {
+            if (!$this->checkColumnExists('hotel_guests', 'sync_status')) {
+                return;
+            }
+            
+            if ($this->checkColumnExists('hotel_guests', 'last_sync')) {
+                $stmt = $this->db->prepare("
+                    UPDATE hotel_guests 
+                    SET sync_status = ?, last_sync = NOW()
+                    WHERE id = ?
+                ");
+            } else {
+                $stmt = $this->db->prepare("
+                    UPDATE hotel_guests 
+                    SET sync_status = ?
+                    WHERE id = ?
+                ");
+            }
+            
+            $stmt->execute([$syncStatus, $guestId]);
+            
+            if ($syncStatus === 'failed' && $message) {
+                $this->logger->warning("Sync failed for guest ID {$guestId}: {$message}");
+            }
+            
+        } catch (Exception $e) {
+            $this->logger->warning("Erro ao atualizar sync status: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Verifica se uma coluna existe
+     */
+    private function checkColumnExists($tableName, $columnName) {
+        try {
+            $stmt = $this->db->prepare("SHOW COLUMNS FROM {$tableName} LIKE ?");
+            $stmt->execute([$columnName]);
+            return $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Log de ações
+     */
+    private function logAction($username, $roomNumber, $action, $ipAddress = null, $userAgent = null, $responseTime = 0, $errorMessage = null) {
+        try {
+            if (!$this->db) return;
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO access_logs (username, room_number, action, ip_address, user_agent, response_time, error_message)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $username,
+                $roomNumber,
+                $action,
+                $ipAddress,
+                $userAgent,
+                $responseTime,
+                $errorMessage
+            ]);
+            
+        } catch (Exception $e) {
+            $this->logger->warning("Erro ao log de ação: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * NOVO: Salvar operação no histórico (para PRG)
+     */
+    private function saveOperationHistory($operationType, $operationData, $resultData, $success, $responseTime) {
+        try {
+            if (!$this->db) return;
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO operation_history (operation_type, operation_data, result_data, success, response_time, user_ip)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $operationType,
+                json_encode($operationData),
+                json_encode($resultData),
+                $success ? 1 : 0,
+                $responseTime,
+                $_SERVER['REMOTE_ADDR'] ?? null
+            ]);
+            
+        } catch (Exception $e) {
+            $this->logger->warning("Erro ao salvar histórico: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Gerar credenciais (método original mantido)
+     */
+    public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
+        $operationStart = microtime(true);
+        
+        try {
+            if (!$this->db) {
+                throw new Exception("Banco de dados não conectado");
+            }
+            
+            // Verificar se já existe usuário ativo no quarto
+            $stmt = $this->db->prepare("SELECT username FROM hotel_guests WHERE room_number = ? AND status = 'active' LIMIT 1");
+            $stmt->execute([$roomNumber]);
+            $existingUser = $stmt->fetch();
+            
+            if ($existingUser) {
+                throw new Exception("Já existe usuário ativo para o quarto {$roomNumber}: {$existingUser['username']}");
+            }
+            
+            // Gerar credenciais simples
+            $username = $this->generateSimpleUsername($roomNumber);
+            $password = $this->generateSimplePassword();
+            
+            // Verificar se as colunas sync_status e last_sync existem
+            $hasSync = $this->checkColumnExists('hotel_guests', 'sync_status');
+            
+            // Inserir no banco
+            if ($hasSync) {
+                $stmt = $this->db->prepare("
+                    INSERT INTO hotel_guests 
+                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status, sync_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'pending')
+                ");
+            } else {
+                $stmt = $this->db->prepare("
+                    INSERT INTO hotel_guests 
+                    (room_number, guest_name, username, password, profile_type, checkin_date, checkout_date, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+                ");
+            }
+            
+            $result = $stmt->execute([
+                $roomNumber, $guestName, $username, $password, 
+                $profileType, $checkinDate, $checkoutDate
+            ]);
+            
+            if (!$result) {
+                throw new Exception("Falha ao salvar no banco");
+            }
+            
+            $guestId = $this->db->lastInsertId();
+            
+            $mikrotikResult = ['success' => false, 'message' => 'MikroTik offline'];
+            
+            // Tentar criar no MikroTik se conectado
+            if ($this->mikrotik) {
+                try {
+                    $timeLimit = $this->calculateTimeLimit($checkoutDate);
+                    $mikrotikResult = $this->createInMikroTik($username, $password, $profileType, $timeLimit);
+                    
+                    // Atualizar status de sync se a coluna existir
+                    if ($hasSync) {
+                        $this->updateSyncStatus($guestId, $mikrotikResult['success'] ? 'synced' : 'failed', $mikrotikResult['message']);
+                    }
+                    
+                } catch (Exception $e) {
+                    $mikrotikResult = ['success' => false, 'message' => 'Erro: ' . $e->getMessage()];
+                    
+                    if ($hasSync) {
+                        $this->updateSyncStatus($guestId, 'failed', $mikrotikResult['message']);
+                    }
+                }
+            }
+            
+            // Log da ação
+            $this->logAction($username, $roomNumber, 'created', $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null, 0, null);
+            
+            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
+            
+            $result = [
+                'success' => true,
+                'username' => $username,
+                'password' => $password,
+                'profile' => $profileType,
+                'valid_until' => $checkoutDate,
+                'bandwidth' => $this->userProfiles[$profileType]['rate_limit'] ?? '10M/2M',
+                'mikrotik_success' => $mikrotikResult['success'],
+                'mikrotik_message' => $mikrotikResult['message'],
+                'sync_status' => $mikrotikResult['success'] ? 'synced' : 'pending',
+                'response_time' => $totalTime,
+                'guest_id' => $guestId
+            ];
+            
+            // NOVO: Salvar operação no histórico
+            $this->saveOperationHistory('create', [
+                'room_number' => $roomNumber,
+                'guest_name' => $guestName,
+                'profile_type' => $profileType,
+                'checkin_date' => $checkinDate,
+                'checkout_date' => $checkoutDate
+            ], $result, true, $totalTime);
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
+            $this->logger->error("Erro ao gerar credenciais: " . $e->getMessage());
+            
+            $result = [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'response_time' => $totalTime
+            ];
+            
+            // Salvar erro no histórico
+            $this->saveOperationHistory('create', [
+                'room_number' => $roomNumber ?? null,
+                'guest_name' => $guestName ?? null,
+                'profile_type' => $profileType ?? null
+            ], $result, false, $totalTime);
+            
+            return $result;
+        }
+    }
+    
     private function generateSimpleUsername($roomNumber) {
         return '' . preg_replace('/[^a-zA-Z0-9]/', '', $roomNumber) . '-' . rand(10, 99);
     }
@@ -747,103 +939,17 @@ class HotelSystemV44 {
         }
     }
     
-    private function updateSyncStatus($guestId, $syncStatus, $message = null) {
-        try {
-            if (!$this->checkColumnExists('hotel_guests', 'sync_status')) {
-                return;
-            }
-            
-            if ($this->checkColumnExists('hotel_guests', 'last_sync')) {
-                $stmt = $this->db->prepare("
-                    UPDATE hotel_guests 
-                    SET sync_status = ?, last_sync = NOW()
-                    WHERE id = ?
-                ");
-            } else {
-                $stmt = $this->db->prepare("
-                    UPDATE hotel_guests 
-                    SET sync_status = ?
-                    WHERE id = ?
-                ");
-            }
-            
-            $stmt->execute([$syncStatus, $guestId]);
-            
-            if ($syncStatus === 'failed' && $message) {
-                $this->logger->warning("Sync failed for guest ID {$guestId}: {$message}");
-            }
-            
-        } catch (Exception $e) {
-            $this->logger->warning("Erro ao atualizar sync status: " . $e->getMessage());
-        }
-    }
-    
-    private function checkColumnExists($tableName, $columnName) {
-        try {
-            $stmt = $this->db->prepare("SHOW COLUMNS FROM {$tableName} LIKE ?");
-            $stmt->execute([$columnName]);
-            return $stmt->rowCount() > 0;
-        } catch (Exception $e) {
-            return false;
-        }
-    }
-    
-    private function logAction($username, $roomNumber, $action, $ipAddress = null, $userAgent = null, $responseTime = 0, $errorMessage = null) {
-        try {
-            if (!$this->db) return;
-            
-            $stmt = $this->db->prepare("
-                INSERT INTO access_logs (username, room_number, action, ip_address, user_agent, response_time, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $username,
-                $roomNumber,
-                $action,
-                $ipAddress,
-                $userAgent,
-                $responseTime,
-                $errorMessage
-            ]);
-            
-        } catch (Exception $e) {
-            $this->logger->warning("Erro ao log de ação: " . $e->getMessage());
-        }
-    }
-    
-    private function saveOperationHistory($operationType, $operationData, $resultData, $success, $responseTime) {
-        try {
-            if (!$this->db) return;
-            
-            $stmt = $this->db->prepare("
-                INSERT INTO operation_history (operation_type, operation_data, result_data, success, response_time, user_ip)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $operationType,
-                json_encode($operationData),
-                json_encode($resultData),
-                $success ? 1 : 0,
-                $responseTime,
-                $_SERVER['REMOTE_ADDR'] ?? null
-            ]);
-            
-        } catch (Exception $e) {
-            $this->logger->warning("Erro ao salvar histórico: " . $e->getMessage());
-        }
-    }
-    
     public function getActiveGuests() {
         if (!$this->db) {
             return [];
         }
         
         try {
+            // Verificar se as colunas de sync existem
             $hasSyncStatus = $this->checkColumnExists('hotel_guests', 'sync_status');
             $hasLastSync = $this->checkColumnExists('hotel_guests', 'last_sync');
             
+            // Montar query baseada nas colunas disponíveis
             $selectFields = "
                 id, room_number, guest_name, username, password, profile_type, 
                 checkin_date, checkout_date, created_at, status,
@@ -868,6 +974,7 @@ class HotelSystemV44 {
             $stmt->execute();
             $guests = $stmt->fetchAll();
             
+            // Adicionar campos padrão se não existirem
             foreach ($guests as &$guest) {
                 if (!$hasSyncStatus) {
                     $guest['sync_status'] = 'unknown';
@@ -926,10 +1033,13 @@ class HotelSystemV44 {
         return $stats;
     }
     
+    /**
+     * Diagnóstico do sistema
+     */
     public function getSystemDiagnostic() {
         return [
             'timestamp' => date('Y-m-d H:i:s'),
-            'version' => '4.4',
+            'version' => '4.3',
             'database' => $this->getDatabaseStatus(),
             'mikrotik' => $this->getMikroTikStatus(),
             'connection_errors' => $this->connectionErrors,
@@ -975,6 +1085,7 @@ class HotelSystemV44 {
     }
     
     private function getMikroTikStatus() {
+        // Sempre retornar estrutura consistente
         $status = [
             'connected' => false,
             'host' => $this->mikrotikConfig['host'] ?? 'N/A',
@@ -994,11 +1105,13 @@ class HotelSystemV44 {
             if (method_exists($this->mikrotik, 'healthCheck')) {
                 $healthResult = $this->mikrotik->healthCheck();
                 
+                // Garantir que as chaves necessárias existam
                 $status['connected'] = $healthResult['connection'] ?? false;
                 $status['error'] = $healthResult['error'] ?? null;
                 $status['message'] = $healthResult['message'] ?? null;
                 $status['reachable'] = true;
                 
+                // Adicionar outras informações se disponíveis
                 if (isset($healthResult['user_count'])) {
                     $status['user_count'] = $healthResult['user_count'];
                 }
@@ -1047,20 +1160,21 @@ class HotelSystemV44 {
     }
 }
 
-// INICIALIZAÇÃO DO SISTEMA v4.4
+// INICIALIZAÇÃO DO SISTEMA v4.3
 $systemInitStart = microtime(true);
 $hotelSystem = null;
 $initializationError = null;
 
 try {
-    $hotelSystem = new HotelSystemV44($mikrotikConfig, $dbConfig, $systemConfig, $userProfiles);
+    $hotelSystem = new HotelSystemV43($mikrotikConfig, $dbConfig, $systemConfig, $userProfiles);
 } catch (Exception $e) {
     $initializationError = $e->getMessage();
-    error_log("[HOTEL_SYSTEM_v4.4] ERRO DE INICIALIZAÇÃO: " . $e->getMessage());
+    error_log("[HOTEL_SYSTEM_v4.3] ERRO DE INICIALIZAÇÃO: " . $e->getMessage());
 }
 
 $systemInitTime = round((microtime(true) - $systemInitStart) * 1000, 2);
 
+// Se houve erro na inicialização, mostrar página de diagnóstico
 if (!$hotelSystem) {
     ?>
     <!DOCTYPE html>
@@ -1068,7 +1182,7 @@ if (!$hotelSystem) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sistema Hotel - Diagnóstico v4.4</title>
+        <title>Sistema Hotel - Diagnóstico v4.3</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
             .container { max-width: 1000px; margin: 0 auto; }
@@ -1078,7 +1192,7 @@ if (!$hotelSystem) {
     </head>
     <body>
         <div class="container">
-            <h1>🏨 Sistema Hotel v4.4 - Diagnóstico</h1>
+            <h1>🏨 Sistema Hotel v4.3 - Diagnóstico</h1>
             
             <div class="error-box">
                 <h3>❌ Erro na Inicialização do Sistema</h3>
@@ -1105,10 +1219,8 @@ if (!$hotelSystem) {
     <?php
     exit;
 }
-/* PARTE 5 */
-// PARTE 5/6 - Processamento PRG e Lógica de Dados
 
-// PROCESSAMENTO PRG v4.4
+// PROCESSAMENTO PRG v4.3
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $actionStart = microtime(true);
     
@@ -1121,6 +1233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkoutDate = $_POST['checkout_date'] ?? '';
             $profileType = $_POST['profile_type'] ?? 'hotel-guest';
             
+            // Validações básicas
             if (empty($roomNumber) || empty($guestName) || empty($checkinDate) || empty($checkoutDate)) {
                 FlashMessages::error("Todos os campos são obrigatórios");
             } else {
@@ -1167,7 +1280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $actionTime = round((microtime(true) - $actionStart) * 1000, 2);
         FlashMessages::error("Erro crítico em {$actionTime}ms: " . $e->getMessage());
-        error_log("[HOTEL_SYSTEM_v4.4] ERRO CRÍTICO: " . $e->getMessage());
+        error_log("[HOTEL_SYSTEM_v4.3] ERRO CRÍTICO: " . $e->getMessage());
     }
     
     // REDIRECT para implementar PRG
@@ -1262,10 +1375,10 @@ $flashMessages = FlashMessages::get();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($systemConfig['hotel_name']); ?> - Sistema v4.4 com Avisos</title>
+    <title><?php echo htmlspecialchars($systemConfig['hotel_name']); ?> - Sistema v4.3 PRG</title>
     
     <style>
-        /* CSS Completo para Sistema Hotel v4.4 */
+        /* CSS otimizado para v4.3 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
@@ -1322,181 +1435,6 @@ $flashMessages = FlashMessages::get();
         .status-database_only { background: #fff3cd; color: #856404; }
         .status-critical { background: #f8d7da; color: #721c24; }
         
-        /* Loading Overlay Styles */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(5px);
-        }
-        
-        .loading-content {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        }
-        
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 6px solid #f3f3f3;
-            border-top: 6px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .loading-title {
-            font-size: 1.8em;
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
-        
-        .loading-message {
-            font-size: 1.1em;
-            color: #7f8c8d;
-            margin-bottom: 20px;
-        }
-        
-        .loading-progress {
-            background: #ecf0f1;
-            border-radius: 10px;
-            height: 8px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-        
-        .loading-progress-bar {
-            height: 100%;
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            border-radius: 10px;
-            width: 0%;
-            transition: width 0.3s ease;
-            animation: progressPulse 2s ease-in-out infinite;
-        }
-        
-        @keyframes progressPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .loading-steps {
-            text-align: left;
-            margin: 20px 0;
-        }
-        
-        .loading-step {
-            padding: 8px 0;
-            font-size: 0.95em;
-            color: #7f8c8d;
-            position: relative;
-            padding-left: 25px;
-        }
-        
-        .loading-step.active {
-            color: #3498db;
-            font-weight: 600;
-        }
-        
-        .loading-step.completed {
-            color: #27ae60;
-        }
-        
-        .loading-step::before {
-            content: "⏳";
-            position: absolute;
-            left: 0;
-            top: 8px;
-        }
-        
-        .loading-step.active::before {
-            content: "🔄";
-            animation: spin 1s linear infinite;
-        }
-        
-        .loading-step.completed::before {
-            content: "✅";
-            animation: none;
-        }
-        
-        .loading-step.error::before {
-            content: "❌";
-            animation: none;
-        }
-        
-        .loading-step.error {
-            color: #e74c3c;
-        }
-        
-        .loading-cancel {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-            font-size: 0.9em;
-        }
-        
-        .loading-cancel:hover {
-            background: #c0392b;
-        }
-        
-        .time-estimate {
-            background: rgba(52, 152, 219, 0.1);
-            border-left: 4px solid #3498db;
-            padding: 12px 15px;
-            margin: 15px 0;
-            border-radius: 5px;
-            font-size: 0.9em;
-            color: #2c3e50;
-        }
-        
-        .time-estimate strong {
-            color: #3498db;
-        }
-        
-        .btn-processing {
-            opacity: 0.6;
-            cursor: not-allowed !important;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .btn-processing::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            animation: btnLoading 1.5s infinite;
-        }
-        
-        @keyframes btnLoading {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1545,9 +1483,8 @@ $flashMessages = FlashMessages::get();
             margin-bottom: 25px;
             font-size: 1.8em;
         }
-        /* PARTE 6 */
-        /* Continuação do CSS e Interface Completa */
         
+        /* Flash Messages Styles */
         .flash-messages {
             margin-bottom: 30px;
         }
@@ -1580,14 +1517,39 @@ $flashMessages = FlashMessages::get();
         }
         
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
-        .flash-success { background: linear-gradient(135deg, #d4edda, #c3e6cb); color: #155724; border-left: 5px solid #27ae60; }
-        .flash-error { background: linear-gradient(135deg, #f8d7da, #f5c6cb); color: #721c24; border-left: 5px solid #e74c3c; }
-        .flash-warning { background: linear-gradient(135deg, #fff3cd, #ffeaa7); color: #856404; border-left: 5px solid #f39c12; }
-        .flash-info { background: linear-gradient(135deg, #d1ecf1, #bee5eb); color: #0c5460; border-left: 5px solid #17a2b8; }
+        .flash-success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border-left: 5px solid #27ae60;
+        }
+        
+        .flash-error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border-left: 5px solid #e74c3c;
+        }
+        
+        .flash-warning {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            color: #856404;
+            border-left: 5px solid #f39c12;
+        }
+        
+        .flash-info {
+            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+            color: #0c5460;
+            border-left: 5px solid #17a2b8;
+        }
         
         .flash-close {
             position: absolute;
@@ -1600,7 +1562,9 @@ $flashMessages = FlashMessages::get();
             opacity: 0.7;
         }
         
-        .flash-close:hover { opacity: 1; }
+        .flash-close:hover {
+            opacity: 1;
+        }
         
         .form-grid {
             display: grid;
@@ -1647,13 +1611,20 @@ $flashMessages = FlashMessages::get();
             display: inline-block;
         }
         
-        .btn:hover:not(.btn-processing) {
+        .btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
         }
         
         .btn-secondary { background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); }
-        .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); font-size: 14px; padding: 10px 20px; }
+        .btn-danger { 
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+            font-size: 14px;
+            padding: 10px 20px;
+        }
+        .btn-danger:hover { 
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+        }
         .btn-info { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
         .btn-clear { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
         
@@ -1665,6 +1636,23 @@ $flashMessages = FlashMessages::get();
             margin: 20px 0;
         }
         
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .diagnostic-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .status-online { color: #28a745; font-weight: bold; }
+        .status-offline { color: #dc3545; font-weight: bold; }
+        
         .credentials-display {
             background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
             color: white;
@@ -1674,6 +1662,18 @@ $flashMessages = FlashMessages::get();
             text-align: center;
             box-shadow: 0 15px 35px rgba(39, 174, 96, 0.3);
             position: relative;
+        }
+        
+        .credentials-display::before {
+            content: "⏰ PERMANENTE - Use o botão X para fechar";
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
         }
         
         .credential-pair {
@@ -1697,12 +1697,49 @@ $flashMessages = FlashMessages::get();
             transform: translateY(-3px);
         }
         
+        .credential-box::after {
+            content: "📋 Clique para copiar";
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: 0.7em;
+            opacity: 0.8;
+        }
+        
         .credential-value {
             font-size: 2.8em;
             font-weight: bold;
             font-family: 'Courier New', monospace;
             letter-spacing: 4px;
             margin: 10px 0;
+        }
+        
+        .removal-display {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 35px;
+            border-radius: 20px;
+            margin: 25px 0;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(231, 76, 60, 0.3);
+        }
+        
+        .removal-details {
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .removal-details h4 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .removal-details p {
+            margin: 5px 0;
+            font-size: 0.95em;
         }
         
         .guests-table {
@@ -1714,9 +1751,26 @@ $flashMessages = FlashMessages::get();
             box-shadow: 0 5px 15px rgba(0,0,0,0.08);
         }
         
-        .guests-table thead { background: #2c3e50; color: white; }
-        .guests-table th, .guests-table td { padding: 15px; text-align: left; border-bottom: 1px solid #ecf0f1; }
-        .guests-table tbody tr:hover { background: #f8f9fa; }
+        .guests-table thead {
+            background: #2c3e50;
+            color: white;
+        }
+        
+        .guests-table th, .guests-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .guests-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .guest-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
         
         .remove-btn {
             background: #e74c3c;
@@ -1729,6 +1783,11 @@ $flashMessages = FlashMessages::get();
             transition: all 0.3s ease;
         }
         
+        .remove-btn:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+        
         .copy-btn {
             background: #ecf0f1;
             color: #2c3e50;
@@ -1738,6 +1797,10 @@ $flashMessages = FlashMessages::get();
             cursor: pointer;
             font-family: monospace;
             font-size: 12px;
+        }
+        
+        .copy-btn:hover {
+            background: #bdc3c7;
         }
         
         .sync-badge {
@@ -1774,58 +1837,96 @@ $flashMessages = FlashMessages::get();
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
         
-        .diagnostic-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
+        .modal-content h3 {
+            color: #e74c3c;
+            margin-bottom: 20px;
+            font-size: 1.5em;
         }
         
-        .diagnostic-card {
-            background: white;
-            padding: 20px;
+        .modal-content p {
+            margin-bottom: 25px;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .btn-confirm {
+            background: #e74c3c;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        
+        .prg-notice {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 15px;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            text-align: center;
         }
         
-        .status-online { color: #28a745; font-weight: bold; }
-        .status-offline { color: #dc3545; font-weight: bold; }
+        .prg-notice h4 {
+            margin-bottom: 10px;
+        }
+        
+        .prg-notice p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
         
         @media (max-width: 768px) {
-            .credential-pair { grid-template-columns: 1fr; }
-            .form-grid { grid-template-columns: 1fr; }
-            .guests-table { font-size: 14px; }
-            .loading-content { padding: 30px 20px; }
+            .credential-pair {
+                grid-template-columns: 1fr;
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            .guests-table {
+                font-size: 14px;
+            }
+            .guests-table th, .guests-table td {
+                padding: 10px;
+            }
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <div class="loading-title" id="loadingTitle">Processando...</div>
-            <div class="loading-message" id="loadingMessage">Aguarde enquanto processamos sua solicitação</div>
-            
-            <div class="loading-progress">
-                <div class="loading-progress-bar" id="loadingProgressBar"></div>
-            </div>
-            
-            <div class="loading-steps" id="loadingSteps"></div>
-            
-            <div class="time-estimate" id="timeEstimate">
-                <strong>Tempo estimado:</strong> Calculando...
-            </div>
-            
-            <button class="loading-cancel" onclick="cancelOperation()">❌ Cancelar Operação</button>
-        </div>
-    </div>
-
     <div class="container">
         <div class="header">
-            <div class="version-badge">v4.4 Loading</div>
+            <div class="version-badge">v4.3 PRG</div>
             <h1>🏨 <?php echo htmlspecialchars($systemConfig['hotel_name']); ?></h1>
-            <p>Sistema de Gerenciamento de Internet - Com Avisos de Processamento</p>
+            <p>Sistema de Gerenciamento de Internet - PRG (POST-Redirect-GET)</p>
             <span class="system-status status-<?php echo $systemStatus; ?>">
                 <?php 
                 switch($systemStatus) {
@@ -1836,6 +1937,12 @@ $flashMessages = FlashMessages::get();
                 }
                 ?>
             </span>
+        </div>
+        
+        <!-- PRG Notice -->
+        <div class="prg-notice">
+            <h4>🚀 Novo Sistema PRG (POST-Redirect-GET)</h4>
+            <p>✅ Não resubmete formulários ao atualizar | ✅ URLs limpas | ✅ Mensagens via sessão</p>
         </div>
         
         <!-- Estatísticas -->
@@ -1869,13 +1976,20 @@ $flashMessages = FlashMessages::get();
                 
                 <?php if (isset($flash['data']) && is_array($flash['data'])): ?>
                     <?php 
+                    // CORREÇÃO: Verificar se é uma operação de CRIAÇÃO (tem username E password)
                     $isCredentialCreation = ($flash['type'] === 'success' && 
                                            isset($flash['data']['username']) && 
                                            isset($flash['data']['password']) &&
                                            !empty($flash['data']['password']));
+                    
+                    // CORREÇÃO: Verificar se é uma operação de REMOÇÃO (tem guest_name mas NÃO tem password)
+                    $isUserRemoval = ($flash['type'] === 'success' && 
+                                    isset($flash['data']['guest_name']) && 
+                                    !isset($flash['data']['password']));
                     ?>
                     
                     <?php if ($isCredentialCreation): ?>
+                        <!-- Exibir credenciais geradas -->
                         <div class="credentials-display">
                             <h3>🎉 Credenciais Geradas!</h3>
                             <div class="credential-pair">
@@ -1888,6 +2002,53 @@ $flashMessages = FlashMessages::get();
                                     <div class="credential-value"><?php echo htmlspecialchars($flash['data']['password']); ?></div>
                                 </div>
                             </div>
+                            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
+                                <p><strong>📊 Detalhes da Operação:</strong></p>
+                                <p>⏱️ Tempo: <?php echo $flash['data']['response_time'] ?? 'N/A'; ?>ms</p>
+                                <p>📡 MikroTik: <?php echo htmlspecialchars($flash['data']['mikrotik_message'] ?? 'N/A'); ?></p>
+                                <p>🔄 Sincronização: <?php echo strtoupper($flash['data']['sync_status'] ?? 'unknown'); ?></p>
+                                <p>🏷️ Perfil: <?php echo htmlspecialchars($flash['data']['profile'] ?? 'N/A'); ?></p>
+                                <p>📅 Válido até: <?php echo isset($flash['data']['valid_until']) ? date('d/m/Y', strtotime($flash['data']['valid_until'])) : 'N/A'; ?></p>
+                            </div>
+                            <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                                <p style="font-size: 0.9em; margin: 0;">
+                                    <strong>💡 Dica:</strong> Clique nos campos acima para copiar automaticamente. 
+                                    Esta mensagem fica visível até você fechá-la manualmente.
+                                </p>
+                            </div>
+                        </div>
+                        
+                    <?php elseif ($isUserRemoval): ?>
+                        <!-- Exibir resultado da remoção -->
+                        <div class="removal-display">
+                            <h3>🗑️ Acesso Removido com Sucesso!</h3>
+                            <div class="removal-details">
+                                <h4>Detalhes da Remoção:</h4>
+                                <p><strong>Hóspede:</strong> <?php echo htmlspecialchars($flash['data']['guest_name']); ?></p>
+                                <p><strong>Quarto:</strong> <?php echo htmlspecialchars($flash['data']['room_number'] ?? 'N/A'); ?></p>
+                                <p><strong>Usuário:</strong> <?php echo htmlspecialchars($flash['data']['username'] ?? 'N/A'); ?></p>
+                                <p><strong>Banco de Dados:</strong> <?php echo ($flash['data']['database_success'] ?? false) ? '✅ Removido' : '❌ Erro'; ?></p>
+                                <p><strong>MikroTik:</strong> <?php echo ($flash['data']['mikrotik_success'] ?? false) ? '✅ Removido' : '❌ Erro'; ?></p>
+                                <p><strong>Mensagem MikroTik:</strong> <?php echo htmlspecialchars($flash['data']['mikrotik_message'] ?? 'N/A'); ?></p>
+                                <p><strong>Tempo de Resposta:</strong> <?php echo $flash['data']['response_time'] ?? 'N/A'; ?>ms</p>
+                                <p><strong>Data/Hora:</strong> <?php echo $flash['data']['timestamp'] ?? date('Y-m-d H:i:s'); ?></p>
+                            </div>
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <p style="font-size: 0.9em; margin: 0;">
+                                    <strong>ℹ️ Informação:</strong> Esta mensagem permanece visível até ser fechada manualmente.
+                                </p>
+                            </div>
+                        </div>
+                        
+                    <?php elseif (isset($flash['data']) && !empty($flash['data'])): ?>
+                        <!-- Dados de debug/diagnóstico -->
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 15px;">
+                            <details>
+                                <summary style="cursor: pointer; font-weight: bold;">📋 Dados Técnicos (Clique para expandir)</summary>
+                                <pre style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px; overflow-x: auto;">
+<?php echo htmlspecialchars(json_encode($flash['data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?>
+                                </pre>
+                            </details>
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
@@ -1900,11 +2061,7 @@ $flashMessages = FlashMessages::get();
             <div class="section">
                 <h2 class="section-title">🆕 Gerar Novo Acesso</h2>
                 
-                <div class="time-estimate">
-                    <strong>⏱️ Tempo estimado:</strong> Geração de credenciais pode levar de 5 a 15 segundos dependendo da conexão com o MikroTik
-                </div>
-                
-                <form method="POST" action="" id="generateForm">
+                <form method="POST" action="">
                     <div class="form-grid">
                         <div>
                             <label for="room_number">Número do Quarto:</label>
@@ -1960,9 +2117,18 @@ $flashMessages = FlashMessages::get();
                 <div class="diagnostic-grid">
                     <div class="diagnostic-card">
                         <h3>💾 Banco de Dados</h3>
-                        <p>Status: <span class="<?php echo $systemDiagnostic['database']['connected'] ? 'status-online' : 'status-offline'; ?>">
-                            <?php echo $systemDiagnostic['database']['connected'] ? '🟢 Online' : '🔴 Offline'; ?>
-                        </span></p>
+                        <?php if (isset($systemDiagnostic['database'])): ?>
+                            <p>Status: <span class="<?php echo $systemDiagnostic['database']['connected'] ? 'status-online' : 'status-offline'; ?>">
+                                <?php echo $systemDiagnostic['database']['connected'] ? '🟢 Online' : '🔴 Offline'; ?>
+                            </span></p>
+                            <p>Host: <?php echo $systemDiagnostic['database']['host'] ?? 'N/A'; ?></p>
+                            <p>Banco: <?php echo $systemDiagnostic['database']['database'] ?? 'N/A'; ?></p>
+                            <?php if (isset($systemDiagnostic['database']['total_guests'])): ?>
+                                <p>Hóspedes: <?php echo $systemDiagnostic['database']['total_guests']; ?></p>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <p>Status: <span class="status-offline">🔴 Não disponível</span></p>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="diagnostic-card">
@@ -1970,27 +2136,43 @@ $flashMessages = FlashMessages::get();
                         <p>Status: <span class="<?php echo ($systemDiagnostic['mikrotik']['connected'] ?? false) ? 'status-online' : 'status-offline'; ?>">
                             <?php echo ($systemDiagnostic['mikrotik']['connected'] ?? false) ? '🟢 Online' : '🔴 Offline'; ?>
                         </span></p>
+                        <p>Host: <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['host'] ?? 'N/A'); ?></p>
+                        <p>Porta: <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['port'] ?? 'N/A'); ?></p>
+                        
+                        <?php if (isset($systemDiagnostic['mikrotik']['error']) && $systemDiagnostic['mikrotik']['error']): ?>
+                            <p style="color: #dc3545; font-size: 0.9em;">
+                                <strong>Erro:</strong> <?php echo htmlspecialchars($systemDiagnostic['mikrotik']['error']); ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="diagnostic-card">
+                        <h3>⚙️ PHP</h3>
+                        <p>Versão: <?php echo PHP_VERSION; ?></p>
+                        <p>PDO MySQL: <span class="<?php echo extension_loaded('pdo_mysql') ? 'status-online' : 'status-offline'; ?>">
+                            <?php echo extension_loaded('pdo_mysql') ? '✅' : '❌'; ?>
+                        </span></p>
+                        <p>Sockets: <span class="<?php echo extension_loaded('sockets') ? 'status-online' : 'status-offline'; ?>">
+                            <?php echo extension_loaded('sockets') ? '✅' : '❌'; ?>
+                        </span></p>
                     </div>
                     
                     <div class="diagnostic-card">
                         <h3>🔍 Ações</h3>
-                        <form method="POST" id="diagnosticForm">
+                        <form method="POST" style="margin-bottom: 10px;">
                             <button type="submit" name="get_diagnostic" class="btn btn-info">
                                 🔍 Diagnóstico Completo
                             </button>
                         </form>
+                        <a href="test_raw_parser_final.php" class="btn btn-secondary">🧪 Testar Parser</a>
                     </div>
                 </div>
             </div>
             
-            <!-- Lista de Hóspedes -->
+            <!-- Lista de Hóspedes COM BOTÃO DE REMOÇÃO -->
             <?php if (!empty($activeGuests)): ?>
             <div class="section">
                 <h2 class="section-title">👥 Hóspedes Ativos (<?php echo count($activeGuests); ?>)</h2>
-                
-                <div class="time-estimate">
-                    <strong>⏱️ Tempo estimado para remoção:</strong> Entre 10 a 30 segundos por usuário
-                </div>
                 
                 <div style="overflow-x: auto;">
                     <table class="guests-table">
@@ -2012,15 +2194,18 @@ $flashMessages = FlashMessages::get();
                                 </td>
                                 <td>
                                     <div style="font-weight: 600;"><?php echo htmlspecialchars($guest['guest_name']); ?></div>
+                                    <div style="font-size: 0.9em; color: #7f8c8d;">
+                                        Check-in: <?php echo date('d/m/Y', strtotime($guest['checkin_date'])); ?>
+                                    </div>
                                 </td>
                                 <td>
                                     <div style="margin-bottom: 5px;">
-                                        <button class="copy-btn" onclick="copyToClipboard('<?php echo htmlspecialchars($guest['username']); ?>')">
+                                        <button class="copy-btn" onclick="copyToClipboard('<?php echo htmlspecialchars($guest['username']); ?>')" title="Clique para copiar">
                                             👤 <?php echo htmlspecialchars($guest['username']); ?>
                                         </button>
                                     </div>
                                     <div>
-                                        <button class="copy-btn" onclick="copyToClipboard('<?php echo htmlspecialchars($guest['password']); ?>')">
+                                        <button class="copy-btn" onclick="copyToClipboard('<?php echo htmlspecialchars($guest['password']); ?>')" title="Clique para copiar">
                                             🔒 <?php echo htmlspecialchars($guest['password']); ?>
                                         </button>
                                     </div>
@@ -2040,9 +2225,11 @@ $flashMessages = FlashMessages::get();
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="remove-btn" onclick="confirmRemoval(<?php echo $guest['id']; ?>, '<?php echo htmlspecialchars($guest['guest_name']); ?>', '<?php echo htmlspecialchars($guest['room_number']); ?>')">
-                                        🗑️ Remover
-                                    </button>
+                                    <div class="guest-actions">
+                                        <button class="remove-btn" onclick="confirmRemoval(<?php echo $guest['id']; ?>, '<?php echo htmlspecialchars($guest['guest_name']); ?>', '<?php echo htmlspecialchars($guest['room_number']); ?>')">
+                                            🗑️ Remover
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -2050,6 +2237,26 @@ $flashMessages = FlashMessages::get();
                     </table>
                 </div>
             </div>
+            <?php else: ?>
+            <div class="section">
+                <h2 class="section-title">👥 Hóspedes Ativos</h2>
+                <div style="text-align: center; padding: 40px;">
+                    <div style="font-size: 4em; margin-bottom: 20px; opacity: 0.7;">📋</div>
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">Nenhum hóspede ativo</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 25px;">Gere credenciais para novos hóspedes usando o formulário acima.</p>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: #2c3e50; color: white; padding: 20px; text-align: center;">
+            <p>&copy; 2025 Sistema Hotel v4.3 - PRG (POST-Redirect-GET)</p>
+            <p>Tempo de carregamento: <?php echo $totalLoadTime; ?>ms | Status: <?php echo $systemStatus; ?></p>
+            <?php if (!empty($hotelSystem->connectionErrors)): ?>
+                <p style="color: #e74c3c; margin-top: 10px;">
+                    Erros: <?php echo implode(', ', $hotelSystem->connectionErrors); ?>
+                </p>
             <?php endif; ?>
         </div>
     </div>
@@ -2059,12 +2266,9 @@ $flashMessages = FlashMessages::get();
         <div class="modal-content">
             <h3>🗑️ Confirmar Remoção</h3>
             <p id="confirmMessage"></p>
-            <div class="time-estimate">
-                <strong>⏱️ Tempo estimado:</strong> Esta operação pode levar de 10 a 30 segundos
-            </div>
-            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
-                <button id="confirmBtn" style="background: #e74c3c; color: white; padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer;">Sim, Remover</button>
-                <button id="cancelBtn" style="background: #95a5a6; color: white; padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer;">Cancelar</button>
+            <div class="modal-buttons">
+                <button id="confirmBtn" class="btn-confirm">Sim, Remover</button>
+                <button id="cancelBtn" class="btn-cancel">Cancelar</button>
             </div>
         </div>
     </div>
@@ -2076,204 +2280,79 @@ $flashMessages = FlashMessages::get();
     </form>
     
     <script>
-        // JavaScript completo para Sistema Hotel v4.4
-        const operationConfig = {
-            generate: {
-                title: '🎨 Gerando Credenciais',
-                message: 'Criando acesso para o hóspede...',
-                estimatedTime: 15000,
-                steps: [
-                    'Validando dados do formulário',
-                    'Conectando ao banco de dados',
-                    'Gerando usuário e senha únicos',
-                    'Conectando ao MikroTik',
-                    'Criando usuário no hotspot',
-                    'Salvando no banco de dados',
-                    'Finalizando operação'
-                ]
-            },
-            remove: {
-                title: '🗑️ Removendo Acesso',
-                message: 'Removendo acesso do hóspede...',
-                estimatedTime: 25000,
-                steps: [
-                    'Localizando dados do hóspede',
-                    'Desconectando usuário ativo',
-                    'Removendo do MikroTik',
-                    'Atualizando banco de dados',
-                    'Verificando remoção completa',
-                    'Finalizando operação'
-                ]
-            },
-            diagnostic: {
-                title: '🔍 Executando Diagnóstico',
-                message: 'Verificando status do sistema...',
-                estimatedTime: 8000,
-                steps: [
-                    'Testando conexão com banco',
-                    'Verificando MikroTik',
-                    'Coletando estatísticas',
-                    'Gerando relatório',
-                    'Finalizando diagnóstico'
-                ]
-            }
-        };
+        // JavaScript para funcionalidades v4.3 PRG
         
-        let currentOperation = null;
-        let operationTimeout = null;
-        let progressInterval = null;
-        let stepInterval = null;
-        
-        function showLoading(operationType) {
-            const config = operationConfig[operationType];
-            if (!config) return;
-            
-            currentOperation = operationType;
-            
-            document.getElementById('loadingTitle').textContent = config.title;
-            document.getElementById('loadingMessage').textContent = config.message;
-            document.getElementById('timeEstimate').innerHTML = `
-                <strong>Tempo estimado:</strong> ${Math.ceil(config.estimatedTime / 1000)} segundos
-            `;
-            
-            const stepsContainer = document.getElementById('loadingSteps');
-            stepsContainer.innerHTML = '';
-            
-            config.steps.forEach((step, index) => {
-                const stepElement = document.createElement('div');
-                stepElement.className = 'loading-step';
-                stepElement.id = `step-${index}`;
-                stepElement.textContent = step;
-                stepsContainer.appendChild(stepElement);
-            });
-            
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            
-            startProgressAnimation(config.estimatedTime);
-            startStepAnimation(config.steps.length, config.estimatedTime);
-            
-            operationTimeout = setTimeout(() => {
-                showTimeoutWarning();
-            }, config.estimatedTime + 10000);
-            
-            disableAllForms();
-        }
-        
-        function startProgressAnimation(totalTime) {
-            const progressBar = document.getElementById('loadingProgressBar');
-            let progress = 0;
-            const increment = 100 / (totalTime / 200);
-            
-            progressInterval = setInterval(() => {
-                progress += increment;
-                if (progress > 95) progress = 95;
-                progressBar.style.width = progress + '%';
-            }, 200);
-        }
-        
-        function startStepAnimation(totalSteps, totalTime) {
-            const stepDuration = totalTime / totalSteps;
-            let currentStep = 0;
-            
-            if (totalSteps > 0) {
-                document.getElementById('step-0').classList.add('active');
-            }
-            
-            stepInterval = setInterval(() => {
-                if (currentStep < totalSteps) {
-                    const currentStepElement = document.getElementById(`step-${currentStep}`);
-                    if (currentStepElement) {
-                        currentStepElement.classList.remove('active');
-                        currentStepElement.classList.add('completed');
-                    }
-                    
-                    currentStep++;
-                    
-                    if (currentStep < totalSteps) {
-                        const nextStepElement = document.getElementById(`step-${currentStep}`);
-                        if (nextStepElement) {
-                            nextStepElement.classList.add('active');
-                        }
-                    }
-                }
-            }, stepDuration);
-        }
-        
-        function hideLoading() {
-            document.getElementById('loadingOverlay').style.display = 'none';
-            
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-            }
-            
-            if (stepInterval) {
-                clearInterval(stepInterval);
-                stepInterval = null;
-            }
-            
-            if (operationTimeout) {
-                clearTimeout(operationTimeout);
-                operationTimeout = null;
-            }
-            
-            enableAllForms();
-            currentOperation = null;
-        }
-        
-        function showTimeoutWarning() {
-            document.getElementById('loadingTitle').textContent = '⚠️ Operação Demorada';
-            document.getElementById('loadingMessage').textContent = 'A operação está demorando mais que o esperado. Verifique a conexão.';
-        }
-        
-        function cancelOperation() {
-            if (confirm('Tem certeza que deseja cancelar a operação?')) {
-                hideLoading();
-                window.location.reload();
-            }
-        }
-        
-        function disableAllForms() {
-            const buttons = document.querySelectorAll('button[type="submit"], .btn, .remove-btn');
-            buttons.forEach(btn => {
-                btn.disabled = true;
-                btn.classList.add('btn-processing');
-            });
-        }
-        
-        function enableAllForms() {
-            const buttons = document.querySelectorAll('button[type="submit"], .btn, .remove-btn');
-            buttons.forEach(btn => {
-                btn.disabled = false;
-                btn.classList.remove('btn-processing');
-            });
-        }
-        
-        document.getElementById('generateForm').addEventListener('submit', function(e) {
-            if (e.submitter && e.submitter.name === 'generate_access') {
-                showLoading('generate');
-            }
-        });
-        
-        document.getElementById('diagnosticForm').addEventListener('submit', function(e) {
-            if (e.submitter && e.submitter.name === 'get_diagnostic') {
-                showLoading('diagnostic');
-            }
-        });
-        
+        // Função para copiar para clipboard com feedback melhorado
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
+                console.log('Copiado: ' + text);
+                
+                // Mostrar mensagem temporária mais visível
                 const message = document.createElement('div');
-                message.innerHTML = `<strong>Copiado:</strong> ${text}`;
+                message.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 1.2em;">✅</div>
+                        <div>
+                            <strong>Copiado com sucesso!</strong><br>
+                            <span style="font-family: monospace; font-size: 0.9em;">${text}</span>
+                        </div>
+                    </div>
+                `;
                 message.style.cssText = `
-                    position: fixed; top: 20px; right: 20px; background: #27ae60; color: white;
-                    padding: 15px; border-radius: 5px; z-index: 2000; font-weight: bold;
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #27ae60, #2ecc71);
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    z-index: 2000;
+                    font-weight: bold;
+                    animation: slideIn 0.3s ease-out;
+                    box-shadow: 0 5px 20px rgba(39, 174, 96, 0.4);
+                    border-left: 5px solid #ffffff;
+                    max-width: 300px;
                 `;
                 document.body.appendChild(message);
-                setTimeout(() => message.remove(), 3000);
+                
+                // Animar saída
+                setTimeout(() => {
+                    message.style.opacity = '0';
+                    message.style.transform = 'translateX(100px)';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 300);
+                }, 3000);
+                
+                // Destacar o campo copiado
+                const allCredentialBoxes = document.querySelectorAll('.credential-box');
+                allCredentialBoxes.forEach(box => {
+                    if (box.textContent.includes(text)) {
+                        box.style.background = 'rgba(255,255,255,0.4)';
+                        box.style.transform = 'scale(1.05)';
+                        setTimeout(() => {
+                            box.style.background = 'rgba(255,255,255,0.15)';
+                            box.style.transform = 'scale(1)';
+                        }, 1000);
+                    }
+                });
+                
+            }).catch(function(err) {
+                console.error('Erro ao copiar: ', err);
+                
+                // Fallback para navegadores antigos
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                alert('📋 Copiado: ' + text);
             });
         }
         
+        // Confirmar remoção
         function confirmRemoval(guestId, guestName, roomNumber) {
             const modal = document.getElementById('confirmModal');
             const message = document.getElementById('confirmMessage');
@@ -2290,8 +2369,6 @@ $flashMessages = FlashMessages::get();
             modal.style.display = 'block';
             
             confirmBtn.onclick = function() {
-                modal.style.display = 'none';
-                showLoading('remove');
                 document.getElementById('removeGuestId').value = guestId;
                 document.getElementById('removeForm').submit();
             };
@@ -2301,6 +2378,7 @@ $flashMessages = FlashMessages::get();
             };
         }
         
+        // Fechar modal ao clicar fora
         window.onclick = function(event) {
             const modal = document.getElementById('confirmModal');
             if (event.target === modal) {
@@ -2308,9 +2386,8 @@ $flashMessages = FlashMessages::get();
             }
         }
         
-        // Configurações automáticas ao carregar
+        // Auto-definir datas
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-definir datas
             const checkinInput = document.getElementById('checkin_date');
             const checkoutInput = document.getElementById('checkout_date');
             
@@ -2344,104 +2421,110 @@ $flashMessages = FlashMessages::get();
             // Auto-fechar flash messages após 30 segundos (EXCETO credenciais)
             const flashMessages = document.querySelectorAll('.flash-message');
             flashMessages.forEach(function(message) {
+                // NÃO auto-fechar se contém credenciais ou dados de remoção
                 const hasCredentials = message.querySelector('.credentials-display');
+                const hasRemovalData = message.querySelector('.removal-display');
                 
-                if (!hasCredentials) {
+                if (!hasCredentials && !hasRemovalData) {
+                    // Só auto-fechar mensagens simples (não credenciais)
                     setTimeout(function() {
                         message.style.opacity = '0';
                         setTimeout(function() {
                             message.style.display = 'none';
                         }, 300);
-                    }, 30000);
+                    }, 30000); // 30 segundos para mensagens normais
                 }
             });
             
-            console.log('Sistema Hotel v4.4 com Loading Indicators carregado em <?php echo $totalLoadTime; ?>ms');
-            console.log('✅ Loading indicators implementados');
-            console.log('✅ Avisos de processamento ativos');
-            console.log('✅ Estimativas de tempo configuradas');
-            console.log('💡 Para recepcionistas: Aguarde os avisos visuais durante operações');
-        });
-        
-        // Detectar quando página foi recarregada após operação
-        window.addEventListener('load', function() {
-            const hasFlashMessages = document.querySelectorAll('.flash-message').length > 0;
-            
-            if (hasFlashMessages) {
-                hideLoading();
-                
-                // Notificação se disponível
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('Sistema Hotel', {
-                        body: 'Operação concluída com sucesso!',
-                        icon: '/favicon.ico'
-                    });
-                }
-            }
-        });
-        
-        // Prevenir saída durante operação
-        window.addEventListener('beforeunload', function(e) {
-            if (currentOperation) {
-                e.preventDefault();
-                e.returnValue = 'Uma operação está em andamento. Tem certeza que deseja sair?';
-                return e.returnValue;
-            }
+            console.log('Sistema Hotel v4.3 PRG carregado em <?php echo $totalLoadTime; ?>ms');
+            console.log('✅ PRG implementado: Formulários não resubmetem ao atualizar');
+            console.log('✅ Flash messages: Mensagens via sessão');
+            console.log('✅ URLs limpas: Sem parâmetros POST na URL');
+            console.log('✅ Credenciais persistentes: Não expiram automaticamente');
+            console.log('💡 Dica: Credenciais ficam visíveis até você fechá-las manualmente');
         });
         
         // Detectar problemas de conectividade
         window.addEventListener('online', function() {
             console.log('Conexão restaurada');
-            if (currentOperation) {
-                document.getElementById('loadingMessage').textContent = 'Conexão restaurada - continuando operação...';
-            }
         });
         
         window.addEventListener('offline', function() {
             console.log('Conexão perdida');
-            if (currentOperation) {
-                document.getElementById('loadingTitle').textContent = '⚠️ Sem Conexão';
-                document.getElementById('loadingMessage').textContent = 'Conexão perdida - operação pode falhar';
-            }
         });
+        
+        // Função para destacar novos elementos (animação)
+        function highlightNewContent() {
+            const newElements = document.querySelectorAll('.credentials-display, .removal-display');
+            newElements.forEach(function(element) {
+                element.style.animation = 'pulse 2s ease-in-out';
+            });
+        }
+        
+        // Chamar destaque se houver novos elementos
+        if (document.querySelector('.credentials-display, .removal-display')) {
+            highlightNewContent();
+        }
+        
+        // Função para limpar formulários
+        function clearForms() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(function(form) {
+                if (form.id !== 'removeForm') {
+                    form.reset();
+                }
+            });
+        }
         
         // Atalhos de teclado
         document.addEventListener('keydown', function(event) {
-            // Escape = Fechar modal ou cancelar operação
-            if (event.key === 'Escape') {
-                const modal = document.getElementById('confirmModal');
-                if (modal.style.display === 'block') {
-                    modal.style.display = 'none';
-                } else if (currentOperation) {
-                    if (confirm('Deseja cancelar a operação em andamento?')) {
-                        cancelOperation();
-                    }
-                }
-            }
-            
-            // Ctrl + L = Limpar tela (apenas se não estiver processando)
-            if (event.ctrlKey && event.key === 'l' && !currentOperation) {
+            // Ctrl + L = Limpar tela
+            if (event.ctrlKey && event.key === 'l') {
                 event.preventDefault();
                 const clearButton = document.querySelector('button[name="clear_screen"]');
-                if (clearButton && !clearButton.disabled) {
+                if (clearButton) {
                     clearButton.click();
                 }
             }
             
-            // Ctrl + G = Focar no campo quarto (apenas se não estiver processando)
-            if (event.ctrlKey && event.key === 'g' && !currentOperation) {
+            // Ctrl + G = Gerar credenciais
+            if (event.ctrlKey && event.key === 'g') {
                 event.preventDefault();
-                const roomNumberInput = document.getElementById('room_number');
-                if (roomNumberInput && !roomNumberInput.disabled) {
-                    roomNumberInput.focus();
+                const generateButton = document.querySelector('button[name="generate_access"]');
+                if (generateButton) {
+                    generateButton.focus();
+                }
+            }
+            
+            // Escape = Fechar modal
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('confirmModal');
+                if (modal.style.display === 'block') {
+                    modal.style.display = 'none';
                 }
             }
         });
         
-        // Backup e restauração de dados do formulário
+        // Função para testar conectividade
+        function testConnectivity() {
+            fetch(window.location.href, {method: 'HEAD'})
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Conectividade OK');
+                    } else {
+                        console.warn('⚠️ Conectividade com problemas');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Erro de conectividade:', error);
+                });
+        }
+        
+        // Testar conectividade a cada 5 minutos
+        setInterval(testConnectivity, 300000);
+        
+        // Função para salvar dados do formulário no localStorage (backup)
         function saveFormData() {
-            if (currentOperation) return;
-            
             const formData = {
                 room_number: document.getElementById('room_number')?.value || '',
                 guest_name: document.getElementById('guest_name')?.value || '',
@@ -2453,12 +2536,14 @@ $flashMessages = FlashMessages::get();
             localStorage.setItem('hotel_form_backup', JSON.stringify(formData));
         }
         
+        // Função para restaurar dados do formulário
         function restoreFormData() {
             const backup = localStorage.getItem('hotel_form_backup');
             if (backup) {
                 try {
                     const formData = JSON.parse(backup);
                     
+                    // Só restaurar se os campos estiverem vazios
                     if (document.getElementById('room_number')?.value === '') {
                         Object.keys(formData).forEach(key => {
                             const element = document.getElementById(key);
@@ -2475,7 +2560,7 @@ $flashMessages = FlashMessages::get();
         
         // Salvar dados do formulário a cada mudança
         document.addEventListener('input', function(event) {
-            if (!currentOperation && event.target.matches('#room_number, #guest_name, #checkin_date, #checkout_date, #profile_type')) {
+            if (event.target.matches('#room_number, #guest_name, #checkin_date, #checkout_date, #profile_type')) {
                 saveFormData();
             }
         });
@@ -2485,14 +2570,26 @@ $flashMessages = FlashMessages::get();
         
         // Limpar backup após submissão bem-sucedida
         window.addEventListener('beforeunload', function() {
+            // Verificar se há flash messages de sucesso
             const successMessages = document.querySelectorAll('.flash-success');
             if (successMessages.length > 0) {
                 localStorage.removeItem('hotel_form_backup');
             }
         });
         
+        // Adicionar CSS para animação de pulse
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+        
         // Log de informações do sistema
-        console.log('🏨 Sistema Hotel v4.4 - Loading Indicators');
+        console.log('🏨 Sistema Hotel v4.3 PRG');
         console.log('📊 Estatísticas:', {
             totalGuests: <?php echo $systemStats['total_guests']; ?>,
             activeGuests: <?php echo $systemStats['active_guests']; ?>,
@@ -2500,24 +2597,10 @@ $flashMessages = FlashMessages::get();
             systemStatus: '<?php echo $systemStatus; ?>'
         });
         
-        console.log('🚀 Funcionalidades v4.4:');
-        console.log('  ✅ Loading indicators implementados');
-        console.log('  ✅ Estimativas de tempo configuradas');
-        console.log('  ✅ Bloqueio de formulários durante processamento');
-        console.log('  ✅ Feedback visual para recepcionistas');
-        console.log('  ✅ Cancelamento de operações');
-        console.log('  ✅ Detecção de problemas de conectividade');
-        
+        // Verificar se há erros de conexão
         <?php if (!empty($hotelSystem->connectionErrors)): ?>
             console.warn('⚠️ Erros de conexão detectados:', <?php echo json_encode($hotelSystem->connectionErrors); ?>);
         <?php endif; ?>
-        
-        <?php if (!($systemDiagnostic['mikrotik']['connected'] ?? false)): ?>
-            console.warn('📡 MikroTik offline - operações limitadas');
-        <?php endif; ?>
-        
-        console.log('🎉 Sistema Hotel v4.4 totalmente carregado e operacional!');
-        console.log('💡 Para recepcionistas: Observe os avisos visuais durante as operações');
     </script>
 </body>
-</html>
+</html>   
