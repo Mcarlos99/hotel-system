@@ -15,7 +15,7 @@
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-ini_set('max_execution_time', 120);
+ini_set('max_execution_time', 250);
 session_start();
 
 mb_internal_encoding('UTF-8');
@@ -587,6 +587,152 @@ class HotelSystemV43 {
         }
     }
     
+    /**
+     * NOVO: Remove todos os hóspedes com check-out vencido (D-1)
+     */
+    public function removeExpiredGuests() {
+        $operationStart = microtime(true);
+        
+        try {
+            if (!$this->db) {
+                throw new Exception("Banco de dados não conectado");
+            }
+            
+            $this->logger->info("Iniciando limpeza de hóspedes com check-out vencido (D-1)");
+            
+            // CORRIGIDO: Buscar hóspedes com check-out de ONTEM ou antes (não hoje)
+            // Considerando que checkout é às 14h, só removemos no dia seguinte
+            $stmt = $this->db->prepare("
+                SELECT id, room_number, guest_name, username, checkout_date,
+                       DATEDIFF(CURDATE(), checkout_date) as days_expired
+                FROM hotel_guests 
+                WHERE status = 'active' AND checkout_date < CURDATE()
+                ORDER BY checkout_date ASC
+            ");
+            $stmt->execute();
+            $expiredGuests = $stmt->fetchAll();
+            
+            if (empty($expiredGuests)) {
+                return [
+                    'success' => true,
+                    'total_found' => 0,
+                    'removed' => 0,
+                    'failed' => 0,
+                    'message' => 'Nenhum hóspede com check-out vencido (D-1 ou anterior) encontrado',
+                    'response_time' => round((microtime(true) - $operationStart) * 1000, 2),
+                    'details' => [],
+                    'cleanup_date' => date('Y-m-d'),
+                    'cutoff_explanation' => 'Remove apenas check-outs de ontem ou anteriores (considerando checkout às 14h)'
+                ];
+            }
+            
+            $this->logger->info("Encontrados " . count($expiredGuests) . " hóspedes com check-out vencido (D-1 ou anterior)");
+            
+            $results = [];
+            $removed = 0;
+            $failed = 0;
+            
+            foreach ($expiredGuests as $guest) {
+                try {
+                    $daysExpired = $guest['days_expired'];
+                    $this->logger->info("Removendo hóspede vencido: {$guest['guest_name']} (Quarto: {$guest['room_number']}, Check-out: {$guest['checkout_date']}, Vencido há {$daysExpired} dia(s))");
+                    
+                    // Usar o método de remoção existente
+                    $removeResult = $this->removeGuestAccess($guest['id']);
+                    
+                    if ($removeResult['success']) {
+                        $removed++;
+                        $results[] = [
+                            'guest_name' => $guest['guest_name'],
+                            'room_number' => $guest['room_number'],
+                            'checkout_date' => $guest['checkout_date'],
+                            'days_expired' => $daysExpired,
+                            'username' => $guest['username'],
+                            'status' => 'removed',
+                            'database_success' => $removeResult['database_success'] ?? true,
+                            'mikrotik_success' => $removeResult['mikrotik_success'] ?? false,
+                            'mikrotik_message' => $removeResult['mikrotik_message'] ?? 'N/A'
+                        ];
+                        $this->logger->info("Hóspede vencido removido com sucesso: {$guest['guest_name']} (vencido há {$daysExpired} dia(s))");
+                    } else {
+                        $failed++;
+                        $results[] = [
+                            'guest_name' => $guest['guest_name'],
+                            'room_number' => $guest['room_number'],
+                            'checkout_date' => $guest['checkout_date'],
+                            'days_expired' => $daysExpired,
+                            'username' => $guest['username'],
+                            'status' => 'failed',
+                            'error' => $removeResult['error'] ?? 'Erro desconhecido'
+                        ];
+                        $this->logger->warning("Falha ao remover hóspede vencido: {$guest['guest_name']} - " . ($removeResult['error'] ?? 'Erro desconhecido'));
+                    }
+                    
+                } catch (Exception $e) {
+                    $failed++;
+                    $results[] = [
+                        'guest_name' => $guest['guest_name'],
+                        'room_number' => $guest['room_number'],
+                        'checkout_date' => $guest['checkout_date'],
+                        'days_expired' => $guest['days_expired'] ?? 0,
+                        'username' => $guest['username'],
+                        'status' => 'failed',
+                        'error' => $e->getMessage()
+                    ];
+                    $this->logger->error("Erro ao remover hóspede vencido {$guest['guest_name']}: " . $e->getMessage());
+                }
+            }
+            
+            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
+            
+            $result = [
+                'success' => true,
+                'total_found' => count($expiredGuests),
+                'removed' => $removed,
+                'failed' => $failed,
+                'response_time' => $totalTime,
+                'timestamp' => date('Y-m-d H:i:s'),
+                'cleanup_date' => date('Y-m-d'),
+                'cutoff_explanation' => 'Remove apenas check-outs de ontem ou anteriores (considerando checkout às 14h)',
+                'message' => "Limpeza D-1 concluída: {$removed} removidos, {$failed} falharam",
+                'details' => $results
+            ];
+            
+            // Salvar operação no histórico
+            $this->saveOperationHistory('cleanup_expired', [
+                'total_found' => count($expiredGuests),
+                'cleanup_logic' => 'D-1 (checkout < today)',
+                'expired_guests' => array_map(function($g) {
+                    return [
+                        'room' => $g['room_number'],
+                        'name' => $g['guest_name'],
+                        'checkout' => $g['checkout_date'],
+                        'days_expired' => $g['days_expired']
+                    ];
+                }, $expiredGuests)
+            ], $result, true, $totalTime);
+            
+            $this->logger->info("Limpeza D-1 de hóspedes vencidos concluída", $result);
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            $totalTime = round((microtime(true) - $operationStart) * 1000, 2);
+            $this->logger->error("Erro na limpeza D-1 de hóspedes vencidos: " . $e->getMessage());
+            
+            $result = [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'response_time' => $totalTime,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            
+            $this->saveOperationHistory('cleanup_expired', [], $result, false, $totalTime);
+            
+            return $result;
+        }
+    }
+
     public function generateCredentials($roomNumber, $guestName, $checkinDate, $checkoutDate, $profileType = 'hotel-guest') {
         $operationStart = microtime(true);
         
@@ -1142,6 +1288,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
+        } elseif (isset($_POST['cleanup_expired'])) {
+            $cleanupResult = $hotelSystem->removeExpiredGuests();
+            
+            if ($cleanupResult['success']) {
+                $responseTime = $cleanupResult['response_time'] ?? 0;
+                $removed = $cleanupResult['removed'] ?? 0;
+                $failed = $cleanupResult['failed'] ?? 0;
+                FlashMessages::success("Limpeza concluída em {$responseTime}ms! Removidos: {$removed}, Falhas: {$failed}", $cleanupResult);
+            } else {
+                FlashMessages::error("Erro na limpeza: " . $cleanupResult['error']);
+            }
+            
         } elseif (isset($_POST['get_diagnostic'])) {
             $debugInfo = $hotelSystem->getSystemDiagnostic();
             FlashMessages::info("Diagnóstico executado", $debugInfo);
@@ -1604,6 +1762,15 @@ $flashMessages = FlashMessages::get();
         .btn-danger:hover:not(:disabled) { 
             box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
         }
+        .btn-cleanup {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            color: white;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+        .btn-cleanup:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.4);
+        }
         .btn-info { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
         .btn-clear { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
         
@@ -1998,6 +2165,10 @@ $flashMessages = FlashMessages::get();
                     $isUserRemoval = ($flash['type'] === 'success' && 
                                     isset($flash['data']['guest_name']) && 
                                     !isset($flash['data']['password']));
+                    
+                    $isCleanupOperation = ($flash['type'] === 'success' && 
+                                         isset($flash['data']['total_found']) && 
+                                         isset($flash['data']['removed']));
                     ?>
                     
                     <?php if ($isCredentialCreation): ?>
@@ -2038,6 +2209,51 @@ $flashMessages = FlashMessages::get();
                             </div>
                         </div>
                         
+                    <?php elseif ($isCleanupOperation): ?>
+                        <!-- Exibir resultado da limpeza -->
+                        <div class="removal-display" style="background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);">
+                            <h3>🧹 Limpeza Concluída!</h3>
+                            <div class="removal-details">
+                                <h4>📊 Resultado da Operação (Check-outs de Ontem):</h4>
+                                <p><strong>🎯 Lógica:</strong> <?php echo htmlspecialchars($flash['data']['cutoff_explanation'] ?? 'Remove apenas check-outs anteriores a hoje'); ?></p>
+                                <p><strong>📅 Data da Limpeza:</strong> <?php echo date('d/m/Y', strtotime($flash['data']['cleanup_date'] ?? 'now')); ?></p>
+                                <p><strong>Total Encontrados:</strong> <?php echo $flash['data']['total_found'] ?? 0; ?> hóspedes (D-1 ou anterior)</p>
+                                <p><strong>✅ Removidos:</strong> <?php echo $flash['data']['removed'] ?? 0; ?> hóspedes</p>
+                                <p><strong>❌ Falharam:</strong> <?php echo $flash['data']['failed'] ?? 0; ?> hóspedes</p>
+                                <p><strong>⏱️ Tempo:</strong> <?php echo $flash['data']['response_time'] ?? 'N/A'; ?>ms</p>
+                                
+                                <?php if (isset($flash['data']['details']) && !empty($flash['data']['details'])): ?>
+                                <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                    <details>
+                                        <summary style="cursor: pointer; font-weight: bold;">📋 Ver Detalhes (<?php echo count($flash['data']['details']); ?> hóspedes processados)</summary>
+                                        <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                                            <?php foreach ($flash['data']['details'] as $detail): ?>
+                                                <div style="padding: 5px; margin: 5px 0; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">
+                                                    <strong><?php echo htmlspecialchars($detail['guest_name'] ?? 'N/A'); ?></strong> 
+                                                    (Quarto: <?php echo htmlspecialchars($detail['room_number'] ?? 'N/A'); ?>) 
+                                                    - Check-out: <?php echo date('d/m/Y', strtotime($detail['checkout_date'] ?? 'now')); ?>
+                                                    <?php if (isset($detail['days_expired'])): ?>
+                                                        - Vencido há: <?php echo $detail['days_expired']; ?> dia(s)
+                                                    <?php endif; ?>
+                                                    - Status: <?php echo $detail['status'] === 'removed' ? '✅ Removido' : '❌ Falhou'; ?>
+                                                    <?php if (isset($detail['error'])): ?>
+                                                        <br><small style="color: #ffcccb;">Erro: <?php echo htmlspecialchars($detail['error']); ?></small>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </details>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <p style="font-size: 0.9em; margin: 0;">
+                                    <strong>💡 Lógica D-1:</strong> Remove apenas check-outs de ontem ou anteriores, 
+                                    considerando que o checkout do hotel é às 14h e o hóspede pode ainda estar no quarto no dia do check-out.
+                                </p>
+                            </div>
+                        </div>
+                        
                     <?php elseif (isset($flash['data']) && !empty($flash['data'])): ?>
                         <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-top: 15px;">
                             <details>
@@ -2064,6 +2280,12 @@ $flashMessages = FlashMessages::get();
             <div id="removeNotice" class="operation-notice">
                 <h4>🗑️ Removendo Acesso</h4>
                 <p>Aguarde por favor. O sistema está removendo o usuário do banco de dados e desconectando do MikroTik. Esta operação pode demorar.</p>
+            </div>
+            
+            <!-- NOVO: Aviso para limpeza de vencidos -->
+            <div id="cleanupNotice" class="operation-notice">
+                <h4>🧹 Limpando Check-outs de Ontem (D-1)</h4>
+                <p>Removendo hóspedes com check-out de ONTEM ou anterior. Considera que checkout é às 14h, então remove apenas no dia seguinte.</p>
             </div>
             
             <div class="section">
@@ -2169,6 +2391,11 @@ $flashMessages = FlashMessages::get();
                         <form method="POST" style="margin-bottom: 10px;" id="diagnosticForm">
                             <button type="button" name="get_diagnostic" class="btn btn-info" id="diagnosticBtn">
                                 🔍 Diagnóstico Completo
+                            </button>
+                        </form>
+                        <form method="POST" style="margin-bottom: 10px;" id="cleanupForm">
+                            <button type="button" name="cleanup_expired" class="btn btn-cleanup" id="cleanupBtn">
+                                🧹 Limpar Check-out
                             </button>
                         </form>
                         <a href="test_raw_parser_final.php" class="btn btn-secondary">🧪 Testar Parser</a>
@@ -2330,6 +2557,13 @@ $flashMessages = FlashMessages::get();
                     '🔍 Executando Diagnóstico...', 
                     'Testando conexões e coletando informações do sistema.'
                 );
+            },
+            
+            showForCleanup() {
+                this.show(
+                    '🧹 Limpando Check-outs D-1...', 
+                    'Removendo hóspedes com check-out de ONTEM ou anterior (considera checkout às 14h).'
+                );
             }
         };
         
@@ -2348,6 +2582,14 @@ $flashMessages = FlashMessages::get();
                 if (notice) {
                     notice.classList.add('show');
                     setTimeout(() => notice.classList.remove('show'), 8000);
+                }
+            },
+            
+            showCleanupNotice() {
+                const notice = document.getElementById('cleanupNotice');
+                if (notice) {
+                    notice.classList.add('show');
+                    setTimeout(() => notice.classList.remove('show'), 15000);
                 }
             }
         };
@@ -2546,6 +2788,56 @@ $flashMessages = FlashMessages::get();
                         
                         // Submeter o formulário
                         generateForm.submit();
+                    }, 100);
+                    
+                    return false;
+                });
+            }
+            
+            // NOVO: Interceptar formulário de limpeza
+            const cleanupForm = document.getElementById('cleanupForm');
+            const cleanupBtn = document.getElementById('cleanupBtn');
+            
+            if (cleanupForm && cleanupBtn) {
+                cleanupBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Confirmar operação
+                    const confirmed = confirm(
+                        '🧹 LIMPEZA DE CHECK-OUTS D-1 (ONTEM)\n\n' +
+                        '⏰ LÓGICA DO HOTEL:\n' +
+                        '• Check-out geralmente é às 14h\n' +
+                        '• Hoje (' + new Date().toLocaleDateString('pt-BR') + '): hóspedes ainda podem estar no hotel\n' +
+                        '• Remove apenas check-outs de ONTEM ou anteriores\n\n' +
+                        '🔄 Esta operação irá:\n' +
+                        '• Buscar check-outs < hoje\n' +
+                        '• Remover do banco de dados\n' +
+                        '• Desconectar do MikroTik\n' +
+                        '• Operação irreversível\n\n' +
+                        'Continuar com a limpeza D-1?'
+                    );
+                    
+                    if (!confirmed) {
+                        return false;
+                    }
+                    
+                    LoadingUX.showForCleanup();
+                    OperationNotices.showCleanupNotice();
+                    ButtonLoading.setLoading(cleanupBtn, true);
+                    OperationTimer.start();
+                    
+                    setTimeout(() => {
+                        let actionInput = cleanupForm.querySelector('input[name="cleanup_expired"]');
+                        if (!actionInput) {
+                            actionInput = document.createElement('input');
+                            actionInput.type = 'hidden';
+                            actionInput.name = 'cleanup_expired';
+                            actionInput.value = '1';
+                            cleanupForm.appendChild(actionInput);
+                        }
+                        
+                        console.log('🧹 Iniciando limpeza de vencidos...');
+                        cleanupForm.submit();
                     }, 100);
                     
                     return false;
