@@ -2108,7 +2108,7 @@ $flashMessages = FlashMessages::get();
                     </div>
                     
                     <div class="button-group">
-                        <button type="button" name="generate_access" class="btn" id="generateBtn">
+                        <button type="submit" name="generate_access" class="btn" id="generateBtn">
                             ✨ Gerar Credenciais
                         </button>
                         <button type="submit" name="clear_screen" class="btn btn-clear">
@@ -2167,7 +2167,7 @@ $flashMessages = FlashMessages::get();
                     <div class="diagnostic-card">
                         <h3>🔍 Ações</h3>
                         <form method="POST" style="margin-bottom: 10px;" id="diagnosticForm">
-                            <button type="button" name="get_diagnostic" class="btn btn-info" id="diagnosticBtn">
+                            <button type="submit" name="get_diagnostic" class="btn btn-info" id="diagnosticBtn">
                                 🔍 Diagnóstico Completo
                             </button>
                         </form>
@@ -2474,31 +2474,21 @@ $flashMessages = FlashMessages::get();
             // Inicializar sistema UX
             LoadingUX.init();
             
-            // NOVO: Interceptar formulário de geração - CORRIGIDO FINAL
+            // NOVO: Interceptar formulário de geração
             const generateForm = document.getElementById('generateForm');
             const generateBtn = document.getElementById('generateBtn');
             
             if (generateForm && generateBtn) {
-                generateBtn.addEventListener('click', function(e) {
-                    e.preventDefault(); // Prevenir submissão imediata
-                    
+                generateForm.addEventListener('submit', function(e) {
                     const roomNumber = document.getElementById('room_number').value.trim();
                     const guestName = document.getElementById('guest_name').value.trim();
-                    const checkinDate = document.getElementById('checkin_date').value.trim();
-                    const checkoutDate = document.getElementById('checkout_date').value.trim();
+                    const checkinDate = document.getElementById('checkin_date').value;
+                    const checkoutDate = document.getElementById('checkout_date').value;
                     
-                    // Debug: Log dos valores
-                    console.log('🔍 Valores do formulário:', {
-                        roomNumber,
-                        guestName, 
-                        checkinDate,
-                        checkoutDate
-                    });
-                    
-                    // Validações
                     if (!roomNumber || !guestName || !checkinDate || !checkoutDate) {
                         alert('❌ Todos os campos são obrigatórios!');
-                        return false;
+                        e.preventDefault();
+                        return;
                     }
                     
                     // Verificar se as datas são válidas
@@ -2507,76 +2497,29 @@ $flashMessages = FlashMessages::get();
                     
                     if (checkout <= checkin) {
                         alert('❌ Data de check-out deve ser posterior ao check-in!');
-                        return false;
+                        e.preventDefault();
+                        return;
                     }
                     
                     // NOVO: Mostrar loading e avisos UX
                     LoadingUX.showForGenerate();
                     OperationNotices.showGenerateNotice();
                     ButtonLoading.setLoading(generateBtn, true);
-                    OperationTimer.start();
                     
                     // Desabilitar todos os campos do formulário
                     const inputs = generateForm.querySelectorAll('input, select, button');
                     inputs.forEach(input => input.disabled = true);
-                    
-                    // CORRIGIDO: Garantir que os valores estejam corretos antes de submeter
-                    document.getElementById('room_number').value = roomNumber;
-                    document.getElementById('guest_name').value = guestName;
-                    document.getElementById('checkin_date').value = checkinDate;
-                    document.getElementById('checkout_date').value = checkoutDate;
-                    
-                    // Submeter o formulário após mostrar o loading
-                    setTimeout(() => {
-                        // Verificar se já existe o campo hidden
-                        let actionInput = generateForm.querySelector('input[name="generate_access"]');
-                        if (!actionInput) {
-                            actionInput = document.createElement('input');
-                            actionInput.type = 'hidden';
-                            actionInput.name = 'generate_access';
-                            actionInput.value = '1';
-                            generateForm.appendChild(actionInput);
-                        }
-                        
-                        console.log('🚀 Submetendo formulário...');
-                        
-                        // Reabilitar campos momentaneamente para submissão
-                        const disabledInputs = generateForm.querySelectorAll('input[disabled], select[disabled]');
-                        disabledInputs.forEach(input => input.disabled = false);
-                        
-                        // Submeter o formulário
-                        generateForm.submit();
-                    }, 100);
-                    
-                    return false;
                 });
             }
             
-            // NOVO: Interceptar formulário de diagnóstico - CORRIGIDO
+            // NOVO: Interceptar formulário de diagnóstico
             const diagnosticForm = document.getElementById('diagnosticForm');
             const diagnosticBtn = document.getElementById('diagnosticBtn');
             
             if (diagnosticForm && diagnosticBtn) {
-                diagnosticBtn.addEventListener('click', function(e) {
-                    e.preventDefault(); // Prevenir submissão imediata
-                    
+                diagnosticForm.addEventListener('submit', function(e) {
                     LoadingUX.showForDiagnostic();
                     ButtonLoading.setLoading(diagnosticBtn, true);
-                    OperationTimer.start();
-                    
-                    // Submeter o formulário após mostrar o loading
-                    setTimeout(() => {
-                        // Adicionar campo hidden para identificar a ação
-                        const actionInput = document.createElement('input');
-                        actionInput.type = 'hidden';
-                        actionInput.name = 'get_diagnostic';
-                        actionInput.value = '1';
-                        diagnosticForm.appendChild(actionInput);
-                        
-                        diagnosticForm.submit();
-                    }, 100);
-                    
-                    return false;
                 });
             }
             
